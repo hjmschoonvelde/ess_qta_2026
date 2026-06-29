@@ -1,0 +1,162 @@
+# Essex Summer School 2026 — Quantitative Text Analysis
+
+This page contains the materials for the Essex Summer School 2025 course *Introduction to Quantitative Text Analysis*. Materials will be added as we go along.
+
+Instructor: [Martijn Schoonvelde](http://mschoonvelde.com).
+
+You can find the syllabus [here](Syllabus_QTA.pdf).
+
+## Communication
+
+To facilitate communication and interaction throughout the course we will make use of a dedicated [Slack channel](https://essqta26.slack.com).
+
+
+## Slides
+
+| Date        | Slides           |  Date        | Slides           |
+| ------------- |:-------------:| ------------- |:-------------:|
+| July  6   | []()| July  13   | []( ) |
+| July  7   | []( )| July  14   |[]( )  |
+| July  8   | []( ) | July 15  | []( ) |
+| July  9  | []( )| July  16   |[]( ) |
+| July  10  | []( ) | July 17 | []( )|
+
+
+## Lab Sessions
+
+| Date        | Link           | Solutions           |    
+| ------------- |:-------------:|:-------------:|
+| July  6   |  [](  ) [](  )  | [](  ) [](  ) |
+| July  7   | [](  ) [](  ) | []( ) [](  ) |
+| July  8   | [](  ) []( ) | [](  ) []( ) |
+| July  9   | [](  ) []( )  | [](  ) [](  ) |
+| July  10   | [](  ) []( )  | [](  ) [](  ) |
+| July  13   | []( ) [](  ) | [](  ) []( ) |
+| July  14   | []( ) [](  )  | []( ) [](  ) |
+| July  15   | [](  ) []( ) | [](  ) []( ) |
+| July  16   | [](  ) []( ) | []( ) []( ) |
+| July  17   | [](  ) [](  )  | [](  ) []( ) |
+
+<!-- ## Flash talks
+
+| Name        | Link           | 
+| ------------- |:-------------:| 
+ -->
+
+## Acknowledgements
+
+I thank Stefan Müller for sharing his lab session materials for his QTA course at UCD.
+
+## Course schedule
+
+
+*Day 1 - July 6*
+
+ - **Lecture**: What is quantitative text analysis? And what is quantitative text analysis in the age of LLMs? What will you learn in this course?
+ 
+-  **Lab**: Working in Positron. Working with Quarto files. Working with packages in R.
+
+- **Readings**
+
+  - Benoit, K.R. (2020). Text as Data: An Overview. Handbook of Research Methods in Political Science and International Relations. Ed. by L. Curini and R. Franzese. Thousand Oaks: Sage: pp. 461–497.
+  - Grimmer, J., Roberts, M.E., and Stewart, B.M. (2022). Text as Data: A New Framework for Machine Learning and the Social Sciences. Princeton: Princeton University Press: chapter 4.
+
+*Day 2 - July 7*
+
+-	**Lecture**: Core assumptions in quantitative text analysis. Representations of text. Preprocessing, feature selection and input design.
+
+-	**Lab**: Working with string variables. Regular expressions. Cleaning text. Introduction to **quanteda** (Benoit _et al._, 2018). Creating a document-feature matrix. 
+
+- **Readings**:
+
+  - Benoit, K., Watanabe, K., Wang, H, Nulty, P., Obeng, A., Müller, & Matsuo, A. (2018). Quanteda: An R package for the quantitative analysis of textual data. Journal of Open Source Software, 3(30), 774.
+  - Baden, C., Pipal, C., Schoonvelde, M. & van der Velden, M.A.C.G., (2022). Three Gaps in Computational Text Analysis Methods for Social Sciences: A Research Agenda. Communication Methods and Measures, 16(1): pp. 1–18.
+
+*Day 3 - July 8*
+
+-	**Lecture**: Advanced text representations: embeddings, contextual embeddings, and LLM representations. Comparing representations.
+
+-	**Lab**: Importing textual data into R. Training a word embeddings model and comparing word vectors using **text2vec** (Selivanov _et al_ 2022)
+
+- **Readings**:
+
+  - Grimmer, J ., Roberts, M.E., and Stewart, B.M. (2022). Text as Data: A New Framework for Machine Learning and the Social Sciences. Princeton: Princeton University Press: chapter 8.
+  - Rodriguez, P.L. and Spirling, A., (2022). Word embeddings: What works, what doesn't, and how to tell the difference for applied research. The Journal of Politics, 84(1): pp.101–115.
+  
+*Day 4 - July 9*
+
+-	**Lecture**: Dictionary construction and validation. How are dictionaries still relevant in the age of LLMs? 
+
+-	**Lab**: Categorizing your documents using self-made dictionaries. Evaluating results. 
+
+- **Readings**
+
+  - Grimmer, J., Roberts, M.E., and Stewart, B.M. (2022). Text as Data: A New Framework for Machine Learning and the Social Sciences. Princeton: Princeton University Press: chapter 16.
+  - Rauh, C., (2018). Validating a sentiment dictionary for German political language–a workbench note. Journal of Information Technology & Politics, 15(4): pp.319–343.
+
+*Day 5 - July 10*
+
+-	**Lecture**: Supervised document classification through human and LLM-assisted coding. Evaluating classifiers and annotations.
+
+-	**Lab**: Binary classification of documents using a simple classifier.
+
+- **Readings**:
+
+  - Daniel Jurafsky and James H. Martin (2020). Speech and Language Processing: An Introduction to Natural Language Processing, Computational Linguistics, and Speech Recognition. 3rd edition: Chapter 4
+  - Gilardi, F., Alizadeh, M., & Kubli, M. (2023). ChatGPT Outperforms Crowd-Workers for Text-Annotation Tasks. Proceedings of the National Academy of Sciences of the United States of America 120 (3): e2305016120.
+
+*Day 6 - July 13*
+
+-	**Lecture**: Supervised, semi-supervised, unsupervised, and instruction-based approaches to placing text on an underlying dimension. Discussing their pros and cons.
+
+-	**Lab**: Wordfish and Latent Semantic Scaling (LSS).
+
+- **Readings**:
+
+  - Watanabe, K., (2021). Latent semantic scaling: A semisupervised text analysis technique for new domains and languages. Communication Methods and Measures, 15(2), pp.81-102.
+  - Schwemmer, C. and Wieczorek, O., (2020). The methodological divide of sociology: Evidence from two decades of journal publications. Sociology, 54(1): pp.3-21.
+
+*Day 7 - July 14*
+
+-	**Lecture**: Understanding topic models. Discussing their pros and cons. 
+
+-	**Lab**: Latent Dirichlet Allocation (LDA), Structural topics models (STM) and seeded topic models. 
+
+- **Readings**:
+  - Roberts, M et al. (2014). Structural topic models for open-ended survey responses. American Journal of Political Science, 58(4), pp. 1064–1082.
+  - Grimmer, J., Roberts, M.E., and Stewart, B.M. (2022). Text as Data: A New Framework for Machine Learning and the Social Sciences. Princeton: Princeton University Press: chapter 13.
+
+*Day 8 - July 15*
+
+-	**Lecture**: New forms of textual data: multilingual text, speech-to-text, multimodal data. 
+
+-	**Lab**: Linguistic preprocessing of text. POS tagging using **udpipe** (Wijffels, 2022)
+
+- **Readings**:
+  - Proksch, S.O., Wratil, C. and Wäckerle, J., (2019). Testing the validity of automatic speech recognition for political text analysis. Political Analysis, 27(3), pp. 339-359.
+  - Licht, H. and Lind, F., (2023). Going cross-lingual: A guide to multilingual text analysis. Computational Communication Research, 5(2), pp. 1–31. 
+  - Birkenmaier, L., Lechner, C.M. and Wagner, C. (2024). The search for solid ground in text as data: A systematic review of validation practices and practical recommendations for validation. Communication methods and measures, 18(3), pp. 249-277.
+
+*Day 9 - July 16*
+
+-	**Lecture**: New developments in supervised machine learning. Weak supervision. Transfer learning. 
+
+-	**Lab**: Zero-shot document classification using an NLI model. 
+
+- **Readings**:
+  - Laurer, M., Van Atteveldt, W., Casas, A. & Welbers, K., (2024). Less annotating, more classifying: Addressing the data scarcity issue of supervised machine learning with deep transfer learning and BERT-NLI. Political Analysis, 32(1), pp. 84–100.
+  - Kroon, A., Welbers, K., Trilling, D., & van Atteveldt, W. (2024). Advancing automated content analysis for a new era of media eﬀects research: The key role of transfer learning. Communication Methods and Measures, 18(2), pp. 142–162.
+  - S. Wankmüller (2024). “Introduction to Neural Transfer Learning with Transformers for Social Science Text Analysis”. Sociological Methods & Research 53 (4): 1676–1752.
+  
+*Day 10 - July 17*
+
+-	**Lecture**: LLMs in QTA: annotation, classification, extraction, validation, and reporting. Concluding remarks 
+
+-	**Lab**: Working with LLMs using **quallmer** (Maerz and Benoit, 2026), **ellmer** (Wickham et al. 2026) packages.
+
+- **Readings**:
+   - Bail, C.A., (2024). Can Generative AI improve social science? Proceedings of the National Academy of Sciences, 121(21) p.e2314021121.
+   - Benoit, K., De Marchi, S., Laver, C., Laver, M. and Ma, J. (2025). Using large language models to analyze political texts through natural language understanding. American Journal of Political Science., pp 1-17.
+   - Laurer, M., van Atteveldt, W., Casas, A., & Welbers, K. (2025). On measurement validity and language models: Increasing validity and decreasing bias with instructions. Communication Methods and Measures 19(1), pp 46–62.
+
+
