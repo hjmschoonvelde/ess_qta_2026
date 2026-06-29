@@ -1,6 +1,6 @@
 # Essex Summer School 2026 — Quantitative Text Analysis
 
-This page contains the materials for the Essex Summer School 2025 course *Introduction to Quantitative Text Analysis*. Materials will be added as we go along.
+This page contains the materials for the Essex Summer School 2026 course *Introduction to Quantitative Text Analysis*. Materials will be added as we go along.
 
 Instructor: [Martijn Schoonvelde](http://mschoonvelde.com).
 
