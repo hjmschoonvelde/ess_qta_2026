@@ -146,7 +146,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 - **Readings**:
   - Laurer, M., Van Atteveldt, W., Casas, A. & Welbers, K., (2024). Less annotating, more classifying: Addressing the data scarcity issue of supervised machine learning with deep transfer learning and BERT-NLI. Political Analysis, 32(1), pp. 84–100.
   - Kroon, A., Welbers, K., Trilling, D., & van Atteveldt, W. (2024). Advancing automated content analysis for a new era of media eﬀects research: The key role of transfer learning. Communication Methods and Measures, 18(2), pp. 142–162.
-  - S. Wankmüller (2024). “Introduction to Neural Transfer Learning with Transformers for Social Science Text Analysis”. Sociological Methods & Research 53 (4): 1676–1752.
+  - S. Wankmüller (2024). Introduction to Neural Transfer Learning with Transformers for Social Science Text Analysis. Sociological Methods & Research 53 (4): 1676–1752.
   
 *Day 10 - July 17*
 
