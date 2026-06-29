@@ -135,7 +135,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 - **Readings**:
   - Proksch, S.O., Wratil, C. and Wäckerle, J., (2019). Testing the validity of automatic speech recognition for political text analysis. Political Analysis, 27(3), pp. 339-359.
   - Licht, H. and Lind, F., (2023). Going cross-lingual: A guide to multilingual text analysis. Computational Communication Research, 5(2), pp. 1–31. 
-  - Birkenmaier, L., Lechner, C.M. and Wagner, C. (2024). The search for solid ground in text as data: A systematic review of validation practices and practical recommendations for validation. Communication methods and measures, 18(3), pp. 249-277.
+  - Birkenmaier, L., Lechner, C.M. and Wagner, C. (2024). The search for solid ground in text as data: A systematic review of validation practices and practical recommendations for validation. Communication Methods and Measures, 18(3), pp. 249-277.
 
 *Day 9 - July 16*
 
