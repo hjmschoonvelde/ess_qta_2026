@@ -102,7 +102,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 - **Readings**:
 
-  - Daniel Jurafsky and James H. Martin (2020). Speech and Language Processing: An Introduction to Natural Language Processing, Computational Linguistics, and Speech Recognition. 3rd edition: Chapter 4
+  - Daniel Jurafsky and James H. Martin (2026). Speech and Language Processing: An Introduction to Natural Language Processing, Computational Linguistics, and Speech Recognition. 3rd edition: Chapter 4
   - Gilardi, F., Alizadeh, M., & Kubli, M. (2023). ChatGPT Outperforms Crowd-Workers for Text-Annotation Tasks. Proceedings of the National Academy of Sciences of the United States of America 120 (3): e2305016120.
 
 *Day 6 - July 13*
