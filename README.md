@@ -123,6 +123,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 -	**Lab**: Latent Dirichlet Allocation (LDA), Structural topics models (STM) and seeded topic models. 
 
 - **Readings**:
+
   - Roberts, M et al. (2014). Structural topic models for open-ended survey responses. American Journal of Political Science, 58(4), pp. 1064–1082.
   - Grimmer, J., Roberts, M.E., and Stewart, B.M. (2022). Text as Data: A New Framework for Machine Learning and the Social Sciences. Princeton: Princeton University Press: chapter 13.
 
@@ -133,6 +134,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 -	**Lab**: Linguistic preprocessing of text. POS tagging using **udpipe** (Wijffels, 2022)
 
 - **Readings**:
+
   - Proksch, S.O., Wratil, C. and Wäckerle, J., (2019). Testing the validity of automatic speech recognition for political text analysis. Political Analysis, 27(3), pp. 339-359.
   - Licht, H. and Lind, F., (2023). Going cross-lingual: A guide to multilingual text analysis. Computational Communication Research, 5(2), pp. 1–31. 
   - Birkenmaier, L., Lechner, C.M. and Wagner, C. (2024). The search for solid ground in text as data: A systematic review of validation practices and practical recommendations for validation. Communication Methods and Measures, 18(3), pp. 249-277.
@@ -144,6 +146,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 -	**Lab**: Zero-shot document classification using an NLI model. 
 
 - **Readings**:
+
   - Laurer, M., Van Atteveldt, W., Casas, A. & Welbers, K., (2024). Less annotating, more classifying: Addressing the data scarcity issue of supervised machine learning with deep transfer learning and BERT-NLI. Political Analysis, 32(1), pp. 84–100.
   - Kroon, A., Welbers, K., Trilling, D., & van Atteveldt, W. (2024). Advancing automated content analysis for a new era of media eﬀects research: The key role of transfer learning. Communication Methods and Measures, 18(2), pp. 142–162.
   - S. Wankmüller (2024). Introduction to Neural Transfer Learning with Transformers for Social Science Text Analysis. Sociological Methods & Research 53 (4): 1676–1752.
@@ -155,6 +158,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 -	**Lab**: Working with LLMs using **quallmer** (Maerz and Benoit, 2026), **ellmer** (Wickham et al. 2026) packages.
 
 - **Readings**:
+
    - Bail, C.A., (2024). Can Generative AI improve social science? Proceedings of the National Academy of Sciences, 121(21) p.e2314021121.
    - Benoit, K., De Marchi, S., Laver, C., Laver, M. and Ma, J. (2025). Using large language models to analyze political texts through natural language understanding. American Journal of Political Science., pp 1-17.
    - Laurer, M., van Atteveldt, W., Casas, A., & Welbers, K. (2025). On measurement validity and language models: Increasing validity and decreasing bias with instructions. Communication Methods and Measures 19(1), pp 46–62.
