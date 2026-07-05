@@ -53,7 +53,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
  - **Lecture**: What is quantitative text analysis? And what is quantitative text analysis in the age of LLMs? What will you learn in this course?
  
--  **Lab**: Working in Positron. Working with Quarto files. Working with packages in R.
+-  **Lab**: Getting started in Positron and Quarto; basic R objects and data types; loading packages; reading, inspecting, and plotting a sample of House of Commons speeches.
 
 - **Readings**
 
