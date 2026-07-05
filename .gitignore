@@ -1,0 +1,5 @@
+.DS_Store
+.Rhistory
+.RData
+*_cache/
+*_files/libs/

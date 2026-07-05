@@ -1,47 +1,56 @@
-# Essex Summer School 2026 — Quantitative Text Analysis
+# Essex Summer School 2026 - Quantitative Text Analysis
 
-This page contains the materials for the Essex Summer School 2026 course *Introduction to Quantitative Text Analysis*. Materials will be added as we go along.
+Materials for the Essex Summer School 2026 course *Introduction to Quantitative Text Analysis*.
 
-Instructor: [Martijn Schoonvelde](http://mschoonvelde.com).
+Instructor: [Martijn Schoonvelde](http://mschoonvelde.com)  
+Syllabus: [Syllabus_QTA.pdf](Syllabus_QTA.pdf)  
+Course Slack: [essqta26.slack.com](https://essqta26.slack.com)
 
-You can find the syllabus [here](Syllabus_QTA.pdf).
+## Getting Started
 
-## Communication
+1. Download the full course folder: [Download ZIP](https://github.com/hjmschoonvelde/ess_qta_2026/archive/refs/heads/main.zip).
+2. Unzip it and open the `ess_qta_2026` folder in Positron.
+3. Open the lab file for the relevant day and run the code chunks from top to bottom.
 
-To facilitate communication and interaction throughout the course we will make use of a dedicated [Slack channel](https://essqta26.slack.com).
+If you use Git, you can clone the repository instead:
 
+```bash
+git clone https://github.com/hjmschoonvelde/ess_qta_2026.git
+```
+
+Please install R, Quarto, and Positron before the first lab.
 
 ## Slides
 
-| Date        | Slides           |  Date        | Slides           |
-| ------------- |:-------------:| ------------- |:-------------:|
-| July  6   | []()| July  13   | []( ) |
-| July  7   | []( )| July  14   |[]( )  |
-| July  8   | []( ) | July 15  | []( ) |
-| July  9  | []( )| July  16   |[]( ) |
-| July  10  | []( ) | July 17 | []( )|
-
+| Date | Slides | Date | Slides |
+| --- | :---: | --- | :---: |
+| July 6 | Coming soon | July 13 | Coming soon |
+| July 7 | Coming soon | July 14 | Coming soon |
+| July 8 | Coming soon | July 15 | Coming soon |
+| July 9 | Coming soon | July 16 | Coming soon |
+| July 10 | Coming soon | July 17 | Coming soon |
 
 ## Lab Sessions
 
-| Date        | Link           | Solutions           |    
-| ------------- |:-------------:|:-------------:|
-| July  6   | [Lab markdown](Lab_sessions/Day_1/Lab_Session_QTA_1.md); [Quarto source](Lab_sessions/Day_1/Lab_Session_QTA_1.qmd); [HoC sample data](Lab_sessions/Day_1/hc_sample_1945_2025.rds) | [Solutions markdown](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.md); [Solutions Quarto](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.qmd) |
-| July  7   | [](  ) [](  ) | []( ) [](  ) |
-| July  8   | [](  ) []( ) | [](  ) []( ) |
-| July  9   | [](  ) []( )  | [](  ) [](  ) |
-| July  10   | [](  ) []( )  | [](  ) [](  ) |
-| July  13   | []( ) [](  ) | [](  ) []( ) |
-| July  14   | []( ) [](  )  | []( ) [](  ) |
-| July  15   | [](  ) []( ) | [](  ) []( ) |
-| July  16   | [](  ) []( ) | []( ) []( ) |
-| July  17   | [](  ) [](  )  | [](  ) []( ) |
+| Date | Lab | Answers |
+| --- | :---: | :---: |
+| July 6 | [View lab](Lab_sessions/Day_1/Lab_Session_QTA_1.md); [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1.qmd); [data](Lab_sessions/Day_1/hc_sample_1945_2025.rds) | [View answers](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.md); [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.qmd) |
+| July 7 | Coming soon | Coming soon |
+| July 8 | Coming soon | Coming soon |
+| July 9 | Coming soon | Coming soon |
+| July 10 | Coming soon | Coming soon |
+| July 13 | Coming soon | Coming soon |
+| July 14 | Coming soon | Coming soon |
+| July 15 | Coming soon | Coming soon |
+| July 16 | Coming soon | Coming soon |
+| July 17 | Coming soon | Coming soon |
 
-<!-- ## Flash talks
+## Daily Workflow
 
-| Name        | Link           | 
-| ------------- |:-------------:| 
- -->
+1. Open the course folder in Positron.
+2. Open the day's `.qmd` lab file.
+3. Run the chunks during the lab.
+4. Render the file when asked.
 
 ## Acknowledgements
 
