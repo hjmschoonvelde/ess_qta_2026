@@ -14,7 +14,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 
 | Date | Slides | Date | Slides |
 | --- | :---: | --- | :---: |
-| July 6 | Coming soon | July 13 | Coming soon |
+| July 6 | [Slides PDF](Slides/Day_1/Slides_QTA_1.pdf) | July 13 | Coming soon |
 | July 7 | Coming soon | July 14 | Coming soon |
 | July 8 | Coming soon | July 15 | Coming soon |
 | July 9 | Coming soon | July 16 | Coming soon |
@@ -34,13 +34,6 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 | July 15 | Coming soon | Coming soon |
 | July 16 | Coming soon | Coming soon |
 | July 17 | Coming soon | Coming soon |
-
-## Daily Workflow
-
-1. Open the course folder in Positron.
-2. Open the day's `.qmd` lab file.
-3. Run the chunks during the lab.
-4. Render the file when asked.
 
 ## Acknowledgements
 
