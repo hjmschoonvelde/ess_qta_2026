@@ -26,7 +26,7 @@ To facilitate communication and interaction throughout the course we will make u
 
 | Date        | Link           | Solutions           |    
 | ------------- |:-------------:|:-------------:|
-| July  6   |  [](  ) [](  )  | [](  ) [](  ) |
+| July  6   | [Lab markdown](Lab_sessions/Day_1/Lab_Session_QTA_1.md); [Quarto source](Lab_sessions/Day_1/Lab_Session_QTA_1.qmd); [HoC sample data](Lab_sessions/Day_1/hc_sample_1945_2025.rds) | [Solutions markdown](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.md); [Solutions Quarto](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.qmd) |
 | July  7   | [](  ) [](  ) | []( ) [](  ) |
 | July  8   | [](  ) []( ) | [](  ) []( ) |
 | July  9   | [](  ) []( )  | [](  ) [](  ) |
