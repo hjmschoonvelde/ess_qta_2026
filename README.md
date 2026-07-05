@@ -12,13 +12,15 @@ Course Slack: [essqta26.slack.com](https://essqta26.slack.com)
 2. Unzip it and open the `ess_qta_2026` folder in Positron.
 3. Open the lab file for the relevant day and run the code chunks from top to bottom.
 
+The ZIP file is a snapshot. If materials are updated during the course, download the ZIP again and replace your old copy, or use Git to pull the latest version.
+
 If you use Git, you can clone the repository instead:
 
 ```bash
 git clone https://github.com/hjmschoonvelde/ess_qta_2026.git
 ```
 
-Please install R, Quarto, and Positron before the first lab.
+Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/docs/get-started/), and [Positron](https://positron.posit.co/download.html) before the first lab.
 
 ## Slides
 
