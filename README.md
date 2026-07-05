@@ -64,7 +64,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Core assumptions in quantitative text analysis. Representations of text. Preprocessing, feature selection and input design.
 
--	**Lab**: Working with string variables. Regular expressions. Cleaning text. Introduction to **quanteda** (Benoit _et al._, 2018). Creating a document-feature matrix. 
+-	**Lab**: String operations and regular expressions; cleaning House of Commons metadata; creating and inspecting a `quanteda` corpus, tokens, keywords-in-context, and document-feature matrices.
 
 - **Readings**:
 
@@ -75,7 +75,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Advanced text representations: embeddings, contextual embeddings, and LLM representations. Comparing representations.
 
--	**Lab**: Importing textual data into R. Training a word embeddings model and comparing word vectors using **text2vec** (Selivanov _et al_ 2022)
+-	**Lab**: Comparing raw text, document-feature matrices, and word embeddings; training a small GloVe model with `text2vec`; inspecting neighbours and cosine similarity.
 
 - **Readings**:
 
@@ -86,7 +86,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Dictionary construction and validation. How are dictionaries still relevant in the age of LLMs? 
 
--	**Lab**: Categorizing your documents using self-made dictionaries. Evaluating results. 
+-	**Lab**: Applying sentiment dictionaries, building a custom policy dictionary, comparing dictionary rates over time and across parties, and using validation to assess results.
 
 - **Readings**
 
@@ -97,7 +97,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Supervised document classification through human and LLM-assisted coding. Evaluating classifiers and annotations.
 
--	**Lab**: Binary classification of documents using a simple classifier.
+-	**Lab**: Defining a supervised classification task; training Naive Bayes and regularised logistic regression classifiers; evaluating predictions with precision, recall, F1, and confusion matrices.
 
 - **Readings**:
 
@@ -108,7 +108,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Supervised, semi-supervised, unsupervised, and instruction-based approaches to placing text on an underlying dimension. Discussing their pros and cons.
 
--	**Lab**: Wordfish and Latent Semantic Scaling (LSS).
+-	**Lab**: Aggregating speeches into party-period documents; estimating Wordscores, Wordfish, and Latent Semantic Scaling models; comparing what different scaling approaches measure.
 
 - **Readings**:
 
@@ -119,7 +119,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Understanding topic models. Discussing their pros and cons. 
 
--	**Lab**: Latent Dirichlet Allocation (LDA), Structural topics models (STM) and seeded topic models. 
+-	**Lab**: Estimating LDA, Structural Topic Models, and seeded LDA models; interpreting topic terms, document-topic proportions, and topic prevalence across parties.
 
 - **Readings**:
 
@@ -130,7 +130,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: New forms of textual data: multilingual text, speech-to-text, multimodal data. 
 
--	**Lab**: Linguistic preprocessing of text. POS tagging using **udpipe** (Wijffels, 2022)
+-	**Lab**: Using UDPipe for tokenisation, lemmatisation, POS tagging, and dependency parsing; building POS-specific DFMs; comparing parties with keyness, topics, and sentiment.
 
 - **Readings**:
 
@@ -142,7 +142,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: New developments in supervised machine learning. Weak supervision. Transfer learning. 
 
--	**Lab**: Zero-shot document classification using an NLI model. 
+-	**Lab**: Using Natural Language Inference for zero-shot classification of House of Commons speeches; comparing model labels with weak keyword labels and designing validation workflows.
 
 - **Readings**:
 
@@ -154,7 +154,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: LLMs in QTA: annotation, classification, extraction, validation, and reporting. Concluding remarks 
 
--	**Lab**: Working with LLMs using **quallmer** (Maerz and Benoit, 2026), **ellmer** (Wickham et al. 2026) packages.
+-	**Lab**: LLM-assisted coding with `quallmer` and `ellmer`; writing codebooks, coding House of Commons speeches, comparing prompts or models, validating outputs, and preserving provenance.
 
 - **Readings**:
 
