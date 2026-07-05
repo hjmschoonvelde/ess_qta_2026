@@ -6,19 +6,7 @@ Instructor: [Martijn Schoonvelde](http://mschoonvelde.com)
 Syllabus: [Syllabus_QTA.pdf](Syllabus_QTA.pdf)  
 Course Slack: [essqta26.slack.com](https://essqta26.slack.com)
 
-## Getting Started
-
-1. Download the full course folder: [Download ZIP](https://github.com/hjmschoonvelde/ess_qta_2026/archive/refs/heads/main.zip).
-2. Unzip it and open the `ess_qta_2026` folder in Positron.
-3. Open the lab file for the relevant day and run the code chunks from top to bottom.
-
-The ZIP file is a snapshot. If materials are updated during the course, download the ZIP again and replace your old copy, or use Git to pull the latest version.
-
-If you use Git, you can clone the repository instead:
-
-```bash
-git clone https://github.com/hjmschoonvelde/ess_qta_2026.git
-```
+## Before the first lab
 
 Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/docs/get-started/), and [Positron](https://positron.posit.co/download.html) before the first lab.
 
@@ -36,7 +24,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 
 | Date | Lab | Answers |
 | --- | :---: | :---: |
-| July 6 | [View lab](Lab_sessions/Day_1/Lab_Session_QTA_1.md); [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1.qmd); [data](Lab_sessions/Day_1/hc_sample_1945_2025.rds) | [View answers](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.md); [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.qmd) |
+| July 6 | [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1.qmd); [data](Lab_sessions/Day_1/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_1/Lab_Session_QTA_1.md) | [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.qmd); [view answers](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.md) |
 | July 7 | Coming soon | Coming soon |
 | July 8 | Coming soon | Coming soon |
 | July 9 | Coming soon | Coming soon |
