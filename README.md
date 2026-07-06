@@ -15,7 +15,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 | Date | Slides | Date | Slides |
 | --- | :---: | --- | :---: |
 | July 6 | [Slides PDF](Slides/Day_1/Slides_QTA_1.pdf) | July 13 | Coming soon |
-| July 7 | Coming soon | July 14 | Coming soon |
+| July 7 | [Slides PDF](Slides/Day_2/Slides_QTA_2.pdf) | July 14 | Coming soon |
 | July 8 | Coming soon | July 15 | Coming soon |
 | July 9 | Coming soon | July 16 | Coming soon |
 | July 10 | Coming soon | July 17 | Coming soon |
