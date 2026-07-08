@@ -1,0 +1,514 @@
+---
+title: "QTA Lab 03: Comparing Text Representations with Word Embeddings"
+format:
+  gfm: default
+editor: source
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  results = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+## Learning goals
+
+In this lab, you will learn how to:
+
+- compare several representations of text: raw text, document-feature matrices, reduced document vectors, and word embeddings;
+- compare simple vectors using cosine similarity, Euclidean distance, and Jaccard similarity;
+- create a feature co-occurrence matrix as the input for a word embedding model;
+- train a small GloVe word embeddings model with `text2vec`;
+- inspect nearest neighbours and cosine similarity between word vectors;
+- distinguish sparse document vectors, dense static word vectors, and contextual vector representations;
+- think critically about what word embeddings can and cannot tell us.
+
+The lecture for today is about comparing representations. In Labs 1 and 2, we worked with text as character data, corpora, tokens, and document-feature matrices. Today we move through four families of vector representations:
+
+1. sparse document vectors, such as count DFMs;
+2. dense document vectors, such as SVD/LSA representations;
+3. dense static word vectors, such as GloVe;
+4. contextual vectors, such as BERT-style and LLM embeddings.
+
+The first three are hands-on in this lab. The fourth is introduced conceptually, and we return to transformer-based models later in the course.
+
+## Load packages
+
+```{r load_packages}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(quanteda)
+library(quanteda.textstats)
+library(text2vec)
+```
+
+## Import the House of Commons sample
+
+```{r read_hoc_sample}
+data_path <- "Data/hc_sample_1945_2025.rds"
+
+hoc <- readRDS(data_path)
+```
+
+Let us inspect the data.
+
+```{r inspect_hoc_data}
+class(hoc)
+dim(hoc)
+names(hoc)
+
+hoc <- hoc |>
+  mutate(
+    year = as.integer(format(date, "%Y")),
+    decade = paste0(floor(year / 10) * 10, "s")
+  )
+
+hoc |>
+  select(date, year, speaker, party, agenda, terms, text) |>
+  head(5)
+```
+
+## Representation 1: raw text
+
+The first representation is the text as a character vector. This is the form in which a human reader, and often an LLM, encounters the speech.
+
+```{r inspect_raw_text}
+speech_text <- hoc$text[1:3]
+
+speech_text
+str_length(speech_text)
+```
+
+Raw text keeps word order, punctuation, and context. It is interpretable, but it is not immediately suitable for most statistical models.
+
+## Representation 2: a document-feature matrix
+
+A document-feature matrix, or DFM, represents documents as rows and features as columns. The cell values count how often each feature occurs in each document.
+
+```{r create_hoc_corpus}
+hoc_corpus <- corpus(
+  hoc,
+  text_field = "text"
+)
+
+ndoc(hoc_corpus)
+```
+
+We tokenize the corpus, remove punctuation, remove stopwords, and lower-case all tokens.
+
+```{r tokenize_hoc}
+hoc_tokens <- tokens(
+  hoc_corpus,
+  what = "word",
+  remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = TRUE,
+  remove_url = TRUE,
+  remove_separators = TRUE,
+  split_hyphens = FALSE
+) |>
+  tokens_tolower() |>
+  tokens_remove(stopwords("en"), padding = FALSE)
+```
+
+Now we create a DFM and inspect the most frequent features.
+
+```{r create_dfm}
+hoc_dfm <- dfm(hoc_tokens)
+
+dim(hoc_dfm)
+topfeatures(hoc_dfm, 25)
+```
+
+The DFM is useful because it gives us a transparent representation of word frequencies. For example, we can group the DFM by party and inspect selected features.
+
+```{r compare_party_dfm_features}
+hoc_dfm_party <- dfm_group(
+  hoc_dfm,
+  groups = docvars(hoc_dfm, "party")
+)
+
+dfm_select(
+  hoc_dfm_party,
+  pattern = c("economy", "economic", "health", "defence", "security")
+)
+```
+
+The DFM treats each feature as independent. It knows that `economy` and `economic` are different columns, but it does not know that they are semantically related.
+
+## Step 1: sparse count vectors
+
+The DFM is already a vector representation. Each speech is represented by a long vector of feature counts. Because most speeches use only a small subset of the full vocabulary, this representation is **high-dimensional** and **sparse**.
+
+This is useful because it is transparent: if a value is high, we know exactly which word is responsible. It is limited because related words such as `economy`, `economic`, and `growth` still live in separate columns.
+
+## Comparing vectors by hand
+
+Before we compare real speeches, let us use the small example from the lecture. Suppose two short speeches are represented by three binary features:
+
+```{r create_toy_vectors}
+a <- c(security = 1, forces = 1, energy = 0)
+b <- c(security = 1, forces = 0, energy = 1)
+
+toy_vectors <- rbind(
+  defence_speech = a,
+  energy_speech = b
+)
+
+toy_vectors
+```
+
+The code below calculates three ways to compare the same two vectors.
+
+- **Cosine similarity** asks whether the vectors point in a similar direction.
+- **Euclidean distance** asks how far apart the two points are.
+- **Jaccard similarity** asks how much overlap there is between the present features.
+
+```{r compare_toy_vectors}
+dot_product <- sum(a * b)
+length_a <- sqrt(sum(a^2))
+length_b <- sqrt(sum(b^2))
+
+cosine_similarity <- dot_product / (length_a * length_b)
+euclidean_distance <- sqrt(sum((a - b)^2))
+jaccard_similarity <- sum(a > 0 & b > 0) / sum(a > 0 | b > 0)
+
+tibble(
+  metric = c("cosine similarity", "Euclidean distance", "Jaccard similarity"),
+  value = c(cosine_similarity, euclidean_distance, jaccard_similarity)
+)
+```
+
+The same vectors can therefore look more or less similar depending on the question we ask. For embeddings, cosine similarity is usually the default starting point.
+
+## Step 2: dense document vectors
+
+SVD, also known as latent semantic analysis in this context, compresses a sparse document-feature matrix into a smaller number of dense dimensions.
+
+The code below uses a sample of speeches so that the example runs quickly. We also trim rare and extremely common terms before applying SVD. This keeps the matrix smaller and removes features that are less useful for this demonstration.
+
+```{r create_svd_input}
+set.seed(20260706)
+
+sample_doc_ids <- sample(seq_len(ndoc(hoc_dfm)), size = 500)
+
+hoc_dfm_sample <- hoc_dfm[sample_doc_ids, ] |>
+  dfm_trim(
+    min_termfreq = 10,
+    max_docfreq = 0.5,
+    docfreq_type = "prop"
+  )
+
+dim(hoc_dfm_sample)
+```
+
+The next block creates the reduced document representation. It does four things:
+
+1. `as.matrix()` converts the sparse DFM into a regular numeric matrix. SVD needs this matrix form.
+2. `scale(..., center = TRUE, scale = FALSE)` subtracts the average value of each feature. This means the SVD focuses on how documents differ from the average pattern of word use, rather than on the overall frequency of common terms.
+3. `svd(..., nu = 2, nv = 0)` asks R to keep the first two document dimensions. These are the two strongest patterns of variation among the sampled speeches.
+4. `svd_model$u[, 1] * svd_model$d[1]` and `svd_model$u[, 2] * svd_model$d[2]` turn those two dimensions into coordinates for each document.
+
+We use two dimensions because they can be plotted. In a research project, we would usually keep more dimensions and validate the representation more carefully.
+
+```{r create_svd_document_vectors}
+svd_input <- as.matrix(hoc_dfm_sample)
+svd_input <- scale(svd_input, center = TRUE, scale = FALSE)
+
+svd_model <- svd(svd_input, nu = 2, nv = 0)
+
+svd_documents <- data.frame(
+  document = docnames(hoc_dfm_sample),
+  dim1 = svd_model$u[, 1] * svd_model$d[1],
+  dim2 = svd_model$u[, 2] * svd_model$d[2],
+  party = docvars(hoc_dfm_sample, "party")
+)
+
+head(svd_documents)
+```
+
+```{r plot_svd_document_vectors}
+svd_documents |>
+  filter(party %in% c("Conservative", "Labour", "Liberal Democrat")) |>
+  ggplot(aes(x = dim1, y = dim2, colour = party)) +
+  geom_hline(yintercept = 0, colour = "grey80") +
+  geom_vline(xintercept = 0, colour = "grey80") +
+  geom_point(alpha = 0.55, size = 1.8) +
+  labs(
+    x = "First SVD dimension",
+    y = "Second SVD dimension",
+    colour = "Party"
+  ) +
+  theme_minimal()
+```
+
+Count DFMs are sparse document vectors. SVD turns sparse document vectors into dense document vectors. GloVe, which we use next, learns dense **word** vectors instead.
+
+## Step 3: dense static word vectors
+
+Dense static word-vector models give each word type one vector. In this lab, we focus on GloVe because it builds directly on word-window information we can create with `quanteda`.
+
+## Word co-occurrence
+
+First, we trim the vocabulary to features that occur at least 15 times. This keeps the exercise quick and removes very rare terms.
+
+```{r trim_vocabulary}
+features <- hoc_dfm |>
+  dfm_trim(min_termfreq = 15) |>
+  featnames()
+
+length(features)
+
+hoc_tokens_trimmed <- tokens_select(
+  hoc_tokens,
+  pattern = features,
+  padding = TRUE
+)
+```
+
+Next, we create a feature co-occurrence matrix. This matrix records how often words appear near each other within a window. We create it because GloVe uses these local co-occurrence patterns to learn word vectors.
+
+```{r create_fcm}
+hoc_fcm <- fcm(
+  hoc_tokens_trimmed,
+  context = "window",
+  window = 5,
+  tri = TRUE
+)
+
+dim(hoc_fcm)
+```
+
+We do not need to inspect the whole matrix. It is large, sparse, and mostly useful here as the input to the embedding model.
+
+## Training a GloVe model
+
+We now train a small GloVe model using `text2vec` (Selivanov et al. 2022). GloVe learns dense word vectors from the co-occurrence matrix.
+
+The intuition is simple: words that appear in similar contexts should end up close to each other in the vector space. If `economy`, `growth`, and `investment` often occur near similar words, the model should learn vectors that place them near one another. The model does not know what these words "mean" in a human sense. It learns a statistical representation of meaning from patterns of co-occurrence.
+
+The code below does four things:
+
+1. `set.seed()` makes the results reproducible.
+2. `GlobalVectors$new()` defines the model. `rank = 30` means that each word will be represented by 30 numbers. These dimensions are not directly interpretable like columns in a DFM; they are latent dimensions learned from the data.
+3. `fit_transform()` trains the model on the feature co-occurrence matrix. `n_iter = 5` means that the model makes five passes over the data.
+4. The final word vector combines a main word vector and a context word vector. This is standard for GloVe-style embeddings.
+
+For teaching purposes, we use 30 dimensions and 5 iterations. A larger corpus, more dimensions, and more iterations will produce better vectors, but they also take longer to run. These settings are therefore chosen to make the lab run quickly, not because they are optimal for a research project.
+
+```{r fit_glove_model}
+set.seed(20260706)
+
+glove <- GlobalVectors$new(
+  rank = 30,
+  x_max = 10
+)
+
+word_vectors_main <- glove$fit_transform(
+  hoc_fcm,
+  n_iter = 5,
+  convergence_tol = 0.01,
+  n_threads = 2
+)
+
+word_vectors_context <- glove$components
+word_vectors <- word_vectors_main + t(word_vectors_context)
+
+dim(word_vectors)
+```
+
+Each row is now a word, and each column is a latent vector dimension of length 30. 
+
+```{r inspect_word_vectors}
+word_vectors[1:5, 1:6]
+```
+
+## Inspecting nearest neighbours
+
+Words that appear in similar contexts should have similar vectors. We can inspect this using cosine similarity. We'll define a function that finds the nearest neighbours of a word in the embedding space.
+
+```{r define_neighbour_function}
+find_similar_words <- function(word, word_vectors, n = 10) {
+  if (!word %in% rownames(word_vectors)) {
+    stop(paste0("The word '", word, "' is not in the embedding vocabulary."))
+  }
+
+  similarities <- sim2(
+    x = word_vectors,
+    y = word_vectors[word, , drop = FALSE],
+    method = "cosine",
+    norm = "l2"
+  )
+
+  similarities <- similarities[, 1]
+  similarities <- similarities[names(similarities) != word]
+
+  similarities |>
+    sort(decreasing = TRUE) |>
+    head(n)
+}
+```
+
+Let us inspect several words from the lecture example.
+
+```{r neighbours_policy_terms}
+find_similar_words("security", word_vectors)
+find_similar_words("defence", word_vectors)
+find_similar_words("energy", word_vectors)
+```
+
+The results are not definitions. They show words that occur in similar local contexts in this sample. This is useful for exploration, dictionary development, and validation, but it should always be checked against the underlying texts.
+
+## Comparing word vectors
+
+Cosine similarity can also compare a small set of selected words.
+
+```{r compare_word_similarities}
+comparison_words <- c(
+  "security",
+  "forces",
+  "defence",
+  "deterrent",
+  "energy",
+  "economy",
+  "jobs"
+)
+
+comparison_words <- intersect(comparison_words, rownames(word_vectors))
+
+word_similarity <- sim2(
+  x = word_vectors[comparison_words, , drop = FALSE],
+  y = word_vectors[comparison_words, , drop = FALSE],
+  method = "cosine",
+  norm = "l2"
+)
+
+round(word_similarity, 2)
+```
+
+This kind of comparison is different from a DFM comparison. In a DFM, `economy` and `economic` are separate count variables. In an embedding model, they can be close in vector space because they appear in related contexts.
+
+## Counts and embeddings answer different questions
+
+Before interpreting embedding similarities, it is useful to return to counts. Counts tell us whether terms occur often enough to support analysis.
+
+```{r compare_security_term_frequencies}
+security_terms <- c(
+  "security",
+  "forces",
+  "defence",
+  "deterrent",
+  "energy",
+  "economy",
+  "jobs"
+)
+
+security_terms <- intersect(security_terms, featnames(hoc_dfm))
+
+textstat_frequency(
+  dfm_select(hoc_dfm, pattern = security_terms)
+) |>
+  select(feature, frequency, rank, docfreq)
+```
+
+The embedding model asks a different question: which terms are used in similar local contexts? We already calculated this with cosine similarity in the previous section. The matrix below is useful for exploration, but it is not a final interpretation.
+
+```{r print_security_embedding_similarity}
+round(word_similarity, 2)
+```
+
+## Plotting selected word vectors
+
+We can also make a simple two-dimensional plot of selected word vectors. This uses principal component analysis (PCA) to project the 30-dimensional vectors into two dimensions. The plot is useful for intuition, but the distances in the plot are only an approximation of the full embedding space.
+
+The projection also depends on which terms we select. The underlying 30-dimensional word vectors do not change, but the two PCA axes are estimated from the selected terms. If we add or remove terms, the plot can rotate, stretch, or make clusters look stronger or weaker. Use this plot as an exploratory visualisation, not as final evidence.
+
+```{r plot_selected_word_vectors}
+plot_terms <- intersect(security_terms, rownames(word_vectors))
+
+plot_pca <- prcomp(
+  word_vectors[plot_terms, , drop = FALSE],
+  scale. = TRUE
+)
+
+plot_data <- data.frame(
+  word = plot_terms,
+  x = plot_pca$x[, 1],
+  y = plot_pca$x[, 2]
+)
+
+ggplot(plot_data, aes(x = x, y = y, label = word)) +
+  geom_hline(yintercept = 0, colour = "grey80") +
+  geom_vline(xintercept = 0, colour = "grey80") +
+  geom_point(size = 2) +
+  geom_text(vjust = -0.7, check_overlap = TRUE) +
+  labs(
+    x = "First principal component",
+    y = "Second principal component"
+  ) +
+  theme_minimal()
+```
+
+This gives us a useful rule of thumb. Use BoW/DFM representations when you want transparent counts or document-level features. Use embeddings when you want to explore contextual similarity between words. In both cases, the representation is a measurement choice that needs validation.
+
+## Step 4: contextual vector representations
+
+GloVe, word2vec, and FastText are **static** word-vector models. They give each word type one vector. In our example, `security` gets one representation even though it can be used in defence, energy, economic, or public-order contexts.
+
+Transformer-based models work differently. BERT-style models and modern LLMs create **contextual** vectors. This means that a token's vector depends on the sentence or document in which it appears.
+
+| Representation | Example | What changes? |
+|---|---|---|
+| Static word vector | GloVe vector for `security` | one vector for the word type |
+| Contextual token vector | BERT vector for `security` in a sentence | vector changes with context |
+| Document embedding | embedding for a whole speech | one vector summarising a text |
+
+This matters for political text. A static embedding blends all uses of `security` into one vector. A contextual model can represent `security` differently when it appears near `deterrent` and `forces` than when it appears near `energy`, `economy`, and `jobs`.
+
+We will not train transformer embeddings in this lab because doing so adds extra dependencies and computational overhead. But the conceptual link is important: modern LLM-based methods still depend on representation choices. They simply use richer, contextual representations than the count-based and GloVe models we have built here.
+
+## Comparing representations
+
+Let us put the three representations side by side.
+
+- Raw text preserves order and context, but is hard to use directly in standard statistical models.
+- Count DFMs are transparent and easy to model, but treat features as independent columns.
+- SVD can turn sparse document vectors into lower-dimensional dense document vectors.
+- Static word embeddings encode contextual similarity between word types, but their dimensions are harder to interpret and need careful validation.
+- Contextual embeddings allow the same word to have different representations in different contexts, but they are computationally heavier and less transparent.
+
+## Practice exercises
+
+1. Inspect the nearest neighbours of `security`, `energy`, and `defence`. Which neighbours look substantively plausible? Which ones look surprising?
+
+```{r exercise_inspect_neighbours}
+# Your answer here
+```
+
+2. Create a cosine similarity matrix for the words `health`, `nhs`, `hospital`, `care`, and `patients`.
+
+```{r exercise_health_similarity}
+# Your answer here
+```
+
+3. Pick one result from the embedding model that looks plausible and one that looks odd. Use `kwic()` on `hoc_tokens` to inspect the original contexts.
+
+```{r exercise_validate_with_kwic}
+# Your answer here
+```
+
+4. In one paragraph, explain when you would prefer a DFM and when you would prefer an embedding model for a social science research question.
+
+```{r exercise_reflect_representations}
+# Your answer here
+```
