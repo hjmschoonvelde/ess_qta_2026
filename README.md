@@ -1,4 +1,4 @@
-# Essex Summer School 2026 - Quantitative Text Analysis
+| July 9 | [Quarto file](Lab_sessions/Day_4/Lab_Session_QTA_4.qmd); [data](Lab_sessions/Day_4/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_4/Lab_Session_QTA_4.md) | [Quarto file](Lab_sessions/Day_4/Lab_Session_QTA_4_Answers.qmd); [view answers](Lab_sessions/Day_4/Lab_Session_QTA_4_Answers.md) |# Essex Summer School 2026 - Quantitative Text Analysis
 
 Materials for the Essex Summer School 2026 course *Introduction to Quantitative Text Analysis*.
 
@@ -17,7 +17,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 | July 6 | [Slides PDF](Slides/Day_1/Slides_QTA_1.pdf) | July 13 | Coming soon |
 | July 7 | [Slides PDF](Slides/Day_2/Slides_QTA_2.pdf) | July 14 | Coming soon |
 | July 8 | [Slides PDF](Slides/Day_3/Slides_QTA_3.pdf) | July 15 | Coming soon |
-| July 9 | Coming soon | July 16 | Coming soon |
+| July 9 | [Slides PDF](Slides/Day_4/Slides_QTA_4.pdf) | July 16 | Coming soon |
 | July 10 | Coming soon | July 17 | Coming soon |
 
 ## Lab Sessions
@@ -27,7 +27,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 | July 6 | [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1.qmd); [data](Lab_sessions/Day_1/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_1/Lab_Session_QTA_1.md) | [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.qmd); [view answers](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.md) |
 | July 7 | [Quarto file](Lab_sessions/Day_2/Lab_Session_QTA_2.qmd); [data](Lab_sessions/Day_2/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_2/Lab_Session_QTA_2.md) | [Quarto file](Lab_sessions/Day_2/Lab_Session_QTA_2_Answers.qmd); [view answers](Lab_sessions/Day_2/Lab_Session_QTA_2_Answers.md) |
 | July 8 | [Quarto file](Lab_sessions/Day_3/Lab_Session_QTA_3.qmd); [data](Lab_sessions/Day_3/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_3/Lab_Session_QTA_3.md) | [Quarto file](Lab_sessions/Day_3/Lab_Session_QTA_3_Answers.qmd); [view answers](Lab_sessions/Day_3/Lab_Session_QTA_3_Answers.md) |
-| July 9 | Coming soon | Coming soon |
+| July 9 | [Quarto file](Lab_sessions/Day_4/Lab_Session_QTA_4.qmd); [data](Lab_sessions/Day_4/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_4/Lab_Session_QTA_4.md) | [Quarto file](Lab_sessions/Day_4/Lab_Session_QTA_4_Answers.qmd); [view answers](Lab_sessions/Day_4/Lab_Session_QTA_4_Answers.md) |
 | July 10 | Coming soon | Coming soon |
 | July 13 | Coming soon | Coming soon |
 | July 14 | Coming soon | Coming soon |
@@ -79,7 +79,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Dictionary construction and validation. How are dictionaries still relevant in the age of LLMs? 
 
--	**Lab**: Applying sentiment dictionaries, building a custom policy dictionary, comparing dictionary rates over time and across parties, and using validation to assess results.
+-	**Lab**: Applying sentiment dictionaries; calculating dictionary rates; building, adapting, and validating an economic insecurity dictionary; and using KWIC, embeddings, and LLM prompts to develop candidate terms.
 
 - **Readings**
 

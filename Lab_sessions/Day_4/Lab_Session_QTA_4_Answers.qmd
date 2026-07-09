@@ -1,0 +1,663 @@
+---
+title: "QTA Lab 04 Answers: Dictionary methods with House of Commons speeches"
+format:
+  gfm: default
+editor: source
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  results = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+## Learning goals
+
+In this lab, you will learn how to:
+
+- apply off-the-shelf dictionaries to House of Commons speeches;
+- calculate dictionary-based rates rather than raw counts;
+- compare two sentiment dictionaries;
+- build, apply, and adapt a small economic insecurity dictionary;
+- inspect false positives and false negatives using KWIC;
+- use static embeddings and LLM prompts as sources of candidate terms;
+- report dictionary choices transparently.
+
+Dictionary methods are transparent: we know which words are counted. That is their great strength. Their weakness is that word lists rarely map perfectly onto a concept, especially in political language where the same word can mean different things in different contexts. Today we use economic insecurity as the running example.
+
+## Load packages
+
+If you have not installed `quanteda.sentiment`, you may need to install it from GitHub:
+
+```{r install_packages}
+# install.packages("remotes")
+# remotes::install_github("quanteda/quanteda.sentiment")
+```
+
+```{r load_packages}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(quanteda)
+library(quanteda.sentiment)
+```
+
+## Read the House of Commons sample
+
+```{r read_hoc_sample}
+data_path <- "Data/hc_sample_1945_2025.rds"
+
+hoc <- readRDS(data_path)
+
+hoc <- hoc |>
+  mutate(year = as.integer(format(date, "%Y")))
+```
+
+```{r select_hoc_sample}
+hoc <- hoc |>
+  select(date, year, speaker, party, agenda, terms, text) 
+```
+
+## Create a corpus, tokens, and DFM
+
+We first create a `quanteda` corpus. Then we tokenize the speeches and create a document-feature matrix.
+
+```{r create_hoc_corpus}
+hoc_corpus <- corpus(
+  hoc,
+  text_field = "text"
+)
+
+ndoc(hoc_corpus)
+```
+
+For the sentiment dictionary, we also compound simple negation patterns such as `not good`. This is a simplified approach, but it demonstrates that dictionary methods often require preprocessing decisions.
+
+```{r tokenize_hoc_corpus}
+hoc_tokens <- tokens(
+  hoc_corpus,
+  what = "word",
+  remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = FALSE,
+  remove_url = TRUE,
+  remove_separators = TRUE,
+  split_hyphens = FALSE,
+  padding = FALSE
+) |>
+  tokens_tolower()
+
+hoc_tokens <- tokens_compound(
+  hoc_tokens,
+  pattern = phrase("not *")
+)
+
+hoc_dfm <- dfm(hoc_tokens)
+
+dim(hoc_dfm)
+
+topfeatures(
+  dfm_select(hoc_dfm, pattern = "not_*", valuetype = "glob"),
+  n = 10
+)
+```
+
+## Counts and rates
+
+House of Commons speeches differ greatly in length. If we only count dictionary hits, longer speeches have more opportunities to match dictionary terms. For most comparisons, we therefore use a rate:
+
+`100 * dictionary hits / number of tokens`
+
+This gives us dictionary hits per 100 tokens.
+
+```{r inspect_document_lengths}
+docvars(hoc_dfm) |>
+  summarise(
+    min_terms = min(terms),
+    median_terms = median(terms),
+    max_terms = max(terms)
+  )
+```
+
+## Off-the-shelf dictionaries
+
+The `quanteda.sentiment` package contains several off-the-shelf sentiment dictionaries. We will use:
+
+- the Lexicoder Sentiment Dictionary, `data_dictionary_LSD2015`;
+- the NRC Word-Emotion Association Lexicon, `data_dictionary_NRC`.
+
+```{r inspect_lsd_dictionary}
+summary(data_dictionary_LSD2015)
+print(data_dictionary_LSD2015, max_nval = 5)
+```
+
+### Lexicoder Sentiment Dictionary
+
+We apply the dictionary using `dfm_lookup()`.
+
+```{r apply_lsd_dictionary}
+hoc_lsd <- dfm_lookup(
+  hoc_dfm,
+  dictionary = data_dictionary_LSD2015
+)
+
+head(hoc_lsd)
+featnames(hoc_lsd)
+
+docvars(hoc_dfm) |>
+  mutate(
+    docname = docnames(hoc_dfm),
+    neg_positive = as.numeric(hoc_lsd[, "neg_positive"]),
+    neg_negative = as.numeric(hoc_lsd[, "neg_negative"])
+  ) |>
+  filter(neg_positive > 0 | neg_negative > 0) |>
+  select(docname, date, speaker, party, agenda, neg_positive, neg_negative) |>
+  head(10)
+
+lsd_negation_patterns <- data_dictionary_LSD2015[c(
+  "neg_positive",
+  "neg_negative"
+)] |>
+  as.list() |>
+  unlist() |>
+  gsub(pattern = " ", replacement = "_", fixed = TRUE)
+
+kwic(
+  hoc_tokens,
+  pattern = lsd_negation_patterns,
+  valuetype = "glob",
+  window = 4
+) |>
+  as.data.frame() |>
+  select(docname, pre, keyword, post) |>
+  head(10)
+```
+
+The LSD dictionary includes positive and negative words, as well as negated positive and negated negative words. We create a sentiment score as:
+
+`100 * (positive words - negative words) / total tokens`
+
+```{r create_lsd_sentiment}
+docvars(hoc_dfm, "lsd_negative") <- as.numeric(hoc_lsd[, "negative"]) +
+  as.numeric(hoc_lsd[, "neg_positive"])
+
+docvars(hoc_dfm, "lsd_positive") <- as.numeric(hoc_lsd[, "positive"]) +
+  as.numeric(hoc_lsd[, "neg_negative"])
+
+docvars(hoc_dfm, "lsd_sentiment") <- 100 *
+  (docvars(hoc_dfm, "lsd_positive") - docvars(hoc_dfm, "lsd_negative")) /
+  ntoken(hoc_dfm)
+
+docvars(hoc_dfm) |>
+  select(date, speaker, party, lsd_positive, lsd_negative, lsd_sentiment) |>
+  head(10)
+```
+
+### NRC sentiment and emotion dictionary
+
+The NRC dictionary contains both positive/negative categories and emotion categories such as fear, trust, anger, and joy.
+
+```{r apply_nrc_dictionary}
+hoc_nrc <- dfm_lookup(
+  hoc_dfm,
+  dictionary = data_dictionary_NRC
+)
+
+head(hoc_nrc)
+featnames(hoc_nrc)
+```
+
+```{r create_nrc_sentiment}
+docvars(hoc_dfm, "nrc_negative") <- as.numeric(hoc_nrc[, "negative"])
+docvars(hoc_dfm, "nrc_positive") <- as.numeric(hoc_nrc[, "positive"])
+docvars(hoc_dfm, "nrc_fear") <- as.numeric(hoc_nrc[, "fear"])
+
+docvars(hoc_dfm, "nrc_sentiment") <- 100 *
+  (docvars(hoc_dfm, "nrc_positive") - docvars(hoc_dfm, "nrc_negative")) /
+  ntoken(hoc_dfm)
+
+docvars(hoc_dfm, "nrc_fear_rate") <- 100 *
+  docvars(hoc_dfm, "nrc_fear") /
+  ntoken(hoc_dfm)
+
+docvars(hoc_dfm) |>
+  select(date, speaker, party, nrc_sentiment, nrc_fear_rate) |>
+  head(10)
+```
+
+## Comparing sentiment dictionaries
+
+The two dictionaries are intended to measure related constructs, but they are not identical. Let us inspect the correlation and scatterplot.
+
+```{r compare_sentiment_dictionaries}
+cor(
+  docvars(hoc_dfm, "lsd_sentiment"),
+  docvars(hoc_dfm, "nrc_sentiment"),
+  use = "complete.obs"
+)
+
+sentiment_comparison <- ggplot(
+  docvars(hoc_dfm),
+  aes(x = lsd_sentiment, y = nrc_sentiment)
+) +
+  geom_point(alpha = 0.35) +
+  labs(
+    x = "LSD sentiment",
+    y = "NRC sentiment",
+    title = "Comparing two off-the-shelf sentiment dictionaries"
+  ) +
+  theme_minimal()
+
+sentiment_comparison
+```
+
+The correlation may be positive, but disagreement is substantively important. It tells us that dictionary choice matters.
+
+## Sentiment over time
+
+Because the sample is approximately balanced by year, we can use it to create simple yearly summaries. These are teaching examples rather than population estimates.
+
+```{r sentiment_by_year}
+sentiment_year <- docvars(hoc_dfm) |>
+  group_by(year) |>
+  summarise(
+    lsd_sentiment = mean(lsd_sentiment, na.rm = TRUE),
+    nrc_sentiment = mean(nrc_sentiment, na.rm = TRUE),
+    nrc_fear_rate = mean(nrc_fear_rate, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(sentiment_year, aes(x = year)) +
+  geom_line(aes(y = lsd_sentiment, colour = "LSD")) +
+  geom_line(aes(y = nrc_sentiment, colour = "NRC")) +
+  labs(
+    x = NULL,
+    y = "Average sentiment score",
+    colour = NULL,
+    title = "Dictionary sentiment over time in the HoC sample"
+  ) +
+  theme_minimal()
+```
+
+## A sentence-level example
+
+Dictionary methods can be applied at different units of analysis. Let us select the longest speech in the sample, reshape it to sentences, and inspect the sentence-level NRC fear rate.
+
+```{r longest_speech_sentence_corpus}
+longest_speech <- corpus_subset(
+  hoc_corpus,
+  terms == max(terms)
+)
+
+docvars(longest_speech) |>
+  select(date, speaker, party, agenda, terms)
+
+longest_speech_sentences <- corpus_reshape(
+  longest_speech,
+  to = "sentences"
+)
+
+ndoc(longest_speech_sentences)
+```
+
+```{r sentence_level_fear}
+sentence_tokens <- tokens(
+  longest_speech_sentences,
+  what = "word",
+  remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = FALSE,
+  remove_url = TRUE,
+  remove_separators = TRUE,
+  split_hyphens = FALSE
+) |>
+  tokens_tolower()
+
+sentence_dfm <- dfm(sentence_tokens)
+sentence_nrc <- dfm_lookup(sentence_dfm, dictionary = data_dictionary_NRC)
+
+docvars(sentence_dfm, "sentence") <- seq_len(ndoc(sentence_dfm))
+docvars(sentence_dfm, "fear_rate") <- 100 *
+  as.numeric(sentence_nrc[, "fear"]) /
+  ntoken(sentence_dfm)
+
+ggplot(docvars(sentence_dfm), aes(x = sentence, y = fear_rate)) +
+  geom_point(alpha = 0.45) +
+  geom_smooth(se = FALSE) +
+  labs(
+    x = "Sentence",
+    y = "NRC fear words per 100 tokens",
+    title = "Sentence-level fear in the longest sampled speech"
+  ) +
+  theme_minimal()
+```
+
+## Building a first economic insecurity dictionary
+
+We now turn to the concept from the lecture: **economic insecurity**. By this we mean references to material hardship, financial vulnerability, unstable income, unaffordable living costs, debt burdens, precarious employment, and anxiety about meeting basic needs.
+
+We start with a deliberately simple seed dictionary. It is not meant to be final. It is a first measurement instrument that we can inspect, criticize, and revise.
+
+```{r create_insecurity_dictionary_seed}
+insecurity_dictionary_seed <- dictionary(list(
+  economic_insecurity = c(
+    "poverty", "unemploy*", "inflation*", "wage*", "rent*",
+    "bills", "debt*", "cost*", "price*"
+  )
+))
+
+insecurity_seed_lookup <- dfm_lookup(
+  hoc_dfm,
+  dictionary = insecurity_dictionary_seed
+)
+
+docvars(hoc_dfm, "insecurity_hits_seed") <-
+  as.numeric(insecurity_seed_lookup[, "economic_insecurity"])
+
+docvars(hoc_dfm, "insecurity_rate_seed") <- 100 *
+  docvars(hoc_dfm, "insecurity_hits_seed") /
+  ntoken(hoc_dfm)
+```
+
+Let us inspect the speeches with the highest rates. The rate is the number of dictionary hits per 100 tokens.
+
+```{r inspect_top_insecurity_seed}
+top_insecurity_seed <- docvars(hoc_dfm) |>
+  select(
+    date, speaker, party, agenda, terms,
+    insecurity_hits_seed, insecurity_rate_seed
+  ) |>
+  arrange(desc(insecurity_rate_seed))
+
+top_insecurity_seed |>
+  head(12)
+```
+
+## Rates are not validation
+
+High dictionary rates are useful for finding speeches to inspect. They do not prove that the dictionary measures economic insecurity well.
+
+The next step is to read examples. We will inspect a likely true positive and a likely false positive.
+
+```{r inspect_selected_insecurity_speeches}
+hoc |>
+  filter(
+    (date == as.Date("1986-04-17") & agenda == "Unemployment Costs") |
+      (date == as.Date("2024-05-16") & speaker == "Penny Mordaunt")
+  ) |>
+  select(date, speaker, party, agenda, text)
+```
+
+In the 1986 example, terms such as `costs` and `unemployment` are clearly relevant to economic insecurity. In the 2024 example, `Bills` refers to proposed legislation rather than household bills. This is a false positive.
+
+## Inspecting context with KWIC
+
+Keyword-in-context output helps us inspect whether a dictionary term is behaving as intended. Let us look at `bills`.
+
+```{r kwic_bills}
+kwic(
+  hoc_tokens,
+  pattern = "bills",
+  window = 10
+) |>
+  head(30)
+```
+
+Some uses of `bills` refer to household costs, but others refer to parliamentary bills. That means `bills` is too ambiguous as a single-word dictionary entry.
+
+## Adapting the dictionary
+
+One way to adapt the dictionary is to remove the ambiguous single-word term `bills` and add more specific multiword phrases such as `energy bills`, `household bills`, and `council tax bills`.
+
+To count multiword expressions in `quanteda`, we first compound them in the token object.
+
+```{r compound_insecurity_phrases}
+insecurity_phrases <- phrase(c(
+  "cost of living",
+  "energy bills",
+  "household bills",
+  "council tax bills",
+  "food banks",
+  "zero hours",
+  "universal credit"
+))
+
+hoc_tokens_insecurity <- tokens_compound(
+  hoc_tokens,
+  pattern = insecurity_phrases
+)
+
+hoc_dfm_insecurity <- dfm(hoc_tokens_insecurity)
+```
+
+```{r create_insecurity_dictionary_adapted}
+insecurity_dictionary_adapted <- dictionary(list(
+  economic_insecurity = c(
+    "poverty", "unemploy*", "inflation*", "wage*", "rent*",
+    "debt*", "cost*", "price*", "afford*", "arrear*",
+    "cost_of_living", "energy_bills", "household_bills",
+    "council_tax_bills", "food_banks", "zero_hours",
+    "universal_credit"
+  )
+))
+
+insecurity_adapted_lookup <- dfm_lookup(
+  hoc_dfm_insecurity,
+  dictionary = insecurity_dictionary_adapted
+)
+
+docvars(hoc_dfm_insecurity, "insecurity_hits_adapted") <-
+  as.numeric(insecurity_adapted_lookup[, "economic_insecurity"])
+
+docvars(hoc_dfm_insecurity, "insecurity_rate_adapted") <- 100 *
+  docvars(hoc_dfm_insecurity, "insecurity_hits_adapted") /
+  ntoken(hoc_dfm_insecurity)
+```
+
+## Comparing the first and adapted dictionaries
+
+```{r compare_seed_and_adapted_dictionary}
+dictionary_comparison <- tibble(
+  date = docvars(hoc_dfm, "date"),
+  speaker = docvars(hoc_dfm, "speaker"),
+  party = docvars(hoc_dfm, "party"),
+  agenda = docvars(hoc_dfm, "agenda"),
+  seed_rate = docvars(hoc_dfm, "insecurity_rate_seed"),
+  adapted_rate = docvars(hoc_dfm_insecurity, "insecurity_rate_adapted")
+) |>
+  mutate(change = adapted_rate - seed_rate)
+
+dictionary_comparison |>
+  arrange(desc(abs(change))) |>
+  head(12)
+```
+
+The `change` column shows how much the adapted dictionary changes the rate. Positive values mean that the adapted dictionary captures additional insecurity language, for example phrases such as `cost_of_living`, `food_banks`, or `universal_credit`. Negative values mean that the adapted dictionary is more conservative, often because broad or ambiguous terms such as `bills` are no longer counted automatically. The adapted dictionary is not automatically better, but it makes the measurement choices more explicit.
+
+## Economic insecurity over time
+
+Because the sample is approximately balanced by year, we can inspect the average adapted dictionary rate over time. Treat this as a teaching example, not a population estimate.
+
+```{r plot_insecurity_over_time}
+insecurity_year <- docvars(hoc_dfm_insecurity) |>
+  group_by(year) |>
+  summarise(
+    insecurity_rate = mean(insecurity_rate_adapted, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(insecurity_year, aes(x = year, y = insecurity_rate)) +
+  geom_line() +
+  geom_smooth(se = FALSE, span = 0.25) +
+  labs(
+    x = NULL,
+    y = "Dictionary hits per 100 tokens",
+    title = "Economic insecurity dictionary over time"
+  ) +
+  theme_minimal()
+```
+
+## Static embeddings for candidate terms
+
+In the lecture, we discussed static embeddings as one way to expand a dictionary. The idea is simple: start with seed terms, find words that appear in similar contexts, and then inspect them as possible additions.
+
+We will not train a new embedding model here, because we did that in Lab 3. The important point for dictionary construction is the workflow:
+
+1. Start with seeds such as `poverty`, `unemployment`, `inflation`, and `debt`.
+2. Use embeddings to find nearby terms.
+3. Treat neighbours as candidate terms.
+4. Inspect KWIC examples before adding anything to the dictionary.
+
+**Exercise:** choose two seed terms from the economic insecurity dictionary. Based on your substantive knowledge, write down three additional terms that might appear in similar contexts. Then inspect those terms with `kwic()`.
+
+```{r exercise_embedding_candidates}
+# Example candidate terms to inspect:
+candidate_terms <- c("hardship", "afford", "arrears")
+
+kwic(
+  hoc_tokens,
+  pattern = candidate_terms,
+  window = 8
+) |>
+  head(30)
+
+# These terms are plausible additions, but the KWIC output should determine
+# whether they mostly capture economic insecurity in this corpus.
+```
+
+## LLM-assisted dictionary development
+
+An LLM can also help generate candidate dictionary terms. A strong prompt starts from a seed list and asks the model to structure its suggestions.
+
+```text
+You are helping build a dictionary for economic insecurity in UK
+parliamentary speeches: hardship, unstable income, unaffordable living
+costs, debt, precarious work, and anxiety about basic needs.
+
+Start from: poverty, unemployment, inflation, wages, rent, bills, debt.
+
+Suggest additional terms for: income/wages, employment insecurity,
+cost of living, housing insecurity, debt, poverty/deprivation,
+welfare insecurity, and general hardship language.
+
+Return a table: category | terms/phrases | why it fits | ambiguity or
+validation notes. Include UK policy terms, multiword phrases, wildcards,
+and likely false positives.
+```
+
+The output from this prompt should be treated as a hypothesis. You still need to inspect examples in the corpus and validate the dictionary against human judgment.
+
+## A small validation exercise
+
+Suppose we hand-code 20 speeches after applying the adapted economic insecurity dictionary:
+
+|  | Human relevant | Human not relevant |
+|---|---:|---:|
+| Dictionary hits | 5 | 3 |
+| Dictionary misses | 4 | 8 |
+
+**Exercise:** calculate precision and recall.
+
+```{r exercise_precision_recall}
+precision <- 5 / (5 + 3)
+recall <- 5 / (5 + 4)
+
+precision
+recall
+```
+
+Precision is 0.625 and recall is about 0.56. In words, a little under two thirds of the dictionary hits were relevant, and the dictionary missed about 44 percent of the relevant speeches in the validation sample.
+
+## Practice exercises
+
+1. Inspect the top 20 speeches according to `insecurity_rate_adapted`. Which look like true positives? Which look doubtful?
+
+```{r exercise_top_insecurity_validation}
+docvars(hoc_dfm_insecurity) |>
+  select(
+    date, speaker, party, agenda, terms,
+    insecurity_rate_adapted
+  ) |>
+  arrange(desc(insecurity_rate_adapted)) |>
+  head(20)
+
+# A good answer should identify several likely true positives and also flag
+# speeches where the matches may be administrative, procedural, or otherwise
+# not about economic insecurity.
+```
+
+2. Use `kwic()` to inspect three ambiguous terms from the adapted dictionary, such as `cost`, `price`, and `rent`. For each term, note whether it usually captures economic insecurity.
+
+```{r exercise_kwic_ambiguous_terms}
+kwic(
+  hoc_tokens,
+  pattern = c("cost", "price", "rent"),
+  window = 8
+) |>
+  head(40)
+
+# "Cost" and "price" are often relevant but can refer to government projects,
+# procurement, or market prices rather than household hardship. "Rent" is more
+# specific, but it can still occur in procedural or policy contexts.
+```
+
+3. Add three terms or phrases to `insecurity_dictionary_adapted`, apply the revised dictionary, and compare the top speeches before and after the change.
+
+```{r exercise_revise_insecurity_dictionary}
+extra_phrases <- phrase(c("low pay", "fuel poverty", "payday loans"))
+
+hoc_tokens_revised <- tokens_compound(
+  hoc_tokens_insecurity,
+  pattern = extra_phrases
+)
+
+hoc_dfm_revised <- dfm(hoc_tokens_revised)
+
+insecurity_dictionary_revised <- dictionary(list(
+  economic_insecurity = c(
+    insecurity_dictionary_adapted[["economic_insecurity"]],
+    "low_pay", "fuel_poverty", "payday_loans"
+  )
+))
+
+insecurity_revised_lookup <- dfm_lookup(
+  hoc_dfm_revised,
+  dictionary = insecurity_dictionary_revised
+)
+
+docvars(hoc_dfm_revised, "insecurity_rate_revised") <- 100 *
+  as.numeric(insecurity_revised_lookup[, "economic_insecurity"]) /
+  ntoken(hoc_dfm_revised)
+
+tibble(
+  date = docvars(hoc_dfm_revised, "date"),
+  speaker = docvars(hoc_dfm_revised, "speaker"),
+  party = docvars(hoc_dfm_revised, "party"),
+  agenda = docvars(hoc_dfm_revised, "agenda"),
+  revised_rate = docvars(hoc_dfm_revised, "insecurity_rate_revised")
+) |>
+  arrange(desc(revised_rate)) |>
+  head(12)
+```
+
+4. Write a short validation plan for the economic insecurity dictionary. Include how you would sample speeches, what counts as a true positive, and how you would report changes to the dictionary.
+
+```{r exercise_reflection}
+# I would first define economic insecurity clearly and create inclusion and
+# exclusion rules. I would then sample speeches across high, medium, and zero
+# dictionary scores, and hand-code whether each speech genuinely discusses
+# hardship, unaffordable costs, unstable income, debt, housing insecurity, or
+# welfare vulnerability. A true positive is a dictionary hit in a speech that
+# human coders judge relevant to economic insecurity. I would calculate
+# precision and recall, inspect false positives and false negatives, revise the
+# dictionary, and report all additions, removals, and validation results.
+```
