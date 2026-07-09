@@ -1,5 +1,3 @@
-| July 9 | [Quarto file](Lab_sessions/Day_4/Lab_Session_QTA_4.qmd); [data](Lab_sessions/Day_4/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_4/Lab_Session_QTA_4.md) | [Quarto file](Lab_sessions/Day_4/Lab_Session_QTA_4_Answers.qmd); [view answers](Lab_sessions/Day_4/Lab_Session_QTA_4_Answers.md) |# Essex Summer School 2026 - Quantitative Text Analysis
-
 Materials for the Essex Summer School 2026 course *Introduction to Quantitative Text Analysis*.
 
 Instructor: [Martijn Schoonvelde](http://mschoonvelde.com)  
