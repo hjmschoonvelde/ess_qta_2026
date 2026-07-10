@@ -1,0 +1,570 @@
+---
+title: "QTA Lab 05 Answers: Supervised classification with House of Commons speeches"
+format:
+  gfm: default
+editor: source
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  results = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+## Learning goals
+
+In this lab, you will learn how to:
+
+- define a supervised classification task;
+- create training and test sets;
+- train a Naive Bayes classifier using a DFM;
+- train a regularised logistic regression classifier;
+- evaluate classifiers with confusion matrices, precision, recall, and F1;
+- inspect predictive features;
+- think about how human and LLM-assisted labels fit into supervised text analysis.
+
+The running example is a House of Commons dataset containing speeches by Jeremy Corbyn and Theresa May during their time as party leaders. We will train classifiers to predict whether a speech was delivered by Corbyn or May. This is a useful teaching task because the labels already exist as metadata, but it is not a perfect research design. The model may learn speaker style, government/opposition roles, parliamentary offices, time period, or policy topics. That is part of the lesson: supervised classification can work well while still requiring careful interpretation.
+
+## Load packages
+
+```{r load_packages}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(quanteda)
+library(quanteda.textmodels)
+library(quanteda.textstats)
+library(quanteda.textplots)
+library(caret)
+```
+
+## Read and prepare the data
+
+```{r read_leader_speeches}
+data_path <- "Data/hc_corbyn_may_party_leaders_2015_2020.rds"
+
+leader_speeches <- readRDS(data_path)
+
+leader_speeches <- leader_speeches |>
+  mutate(
+    year = as.integer(format(date, "%Y")),
+    speaker_label = if_else(speaker == "Jeremy Corbyn", "Corbyn", "May")
+  )
+```
+
+The full leader-period dataset contains many more Theresa May speeches than Jeremy Corbyn speeches. If we train on the unbalanced dataset, a classifier can look good simply by predicting the majority class. For the main example, we therefore create a balanced dataset with the same number of speeches for each speaker.
+
+```{r balance_leader_speeches}
+leader_speeches |>
+  count(speaker, party)
+
+min_speaker_n <- leader_speeches |>
+  count(speaker_label) |>
+  summarise(min_n = min(n)) |>
+  pull(min_n)
+
+set.seed(20260710)
+
+leader_balanced <- leader_speeches |>
+  group_by(speaker_label) |>
+  slice_sample(n = min_speaker_n) |>
+  ungroup()
+
+leader_balanced |>
+  count(speaker, party)
+```
+
+## Create a corpus and DFM
+
+```{r create_corpus}
+leader_corpus <- corpus(
+  leader_balanced,
+  text_field = "text"
+)
+
+ndoc(leader_corpus)
+```
+
+We tokenize the corpus, remove punctuation, numbers, URLs, and English stopwords, and lower-case all tokens.
+
+```{r tokenize_leader_speeches}
+leader_tokens <- tokens(
+  leader_corpus,
+  what = "word",
+  remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = TRUE,
+  remove_url = TRUE,
+  remove_separators = TRUE,
+  split_hyphens = FALSE
+) |>
+  tokens_tolower() |>
+  tokens_remove(stopwords("en"))
+```
+
+We then create a DFM and trim it so that we only keep features that appear in at least 1 percent of documents.
+
+```{r create_leader_dfm}
+leader_dfm <- dfm(leader_tokens) |>
+  dfm_trim(
+    min_docfreq = 0.01,
+    docfreq_type = "prop"
+  )
+
+dim(leader_dfm)
+topfeatures(leader_dfm, 30)
+```
+
+## Create training and test sets
+
+Supervised learning requires labelled examples. We split the data into:
+
+- a training set used to estimate the model;
+- a test set held back for evaluation.
+
+The test set should not be used to make modelling decisions. It simulates new unseen data.
+
+The code below first fixes the random seed so that everyone gets the same split. It then gives each speech a simple numeric ID, randomly selects 70% of those IDs for the training set, and keeps the remaining 30% for the test set. The two `dfm_subset()` calls apply that split to the document-feature matrix, while the two `table()` calls check how many Corbyn and May speeches ended up in each set. This matters because a very uneven split can make model evaluation misleading.
+
+```{r create_train_test_split}
+set.seed(20260710)
+
+docvars(leader_dfm, "id_numeric") <- seq_len(ndoc(leader_dfm))
+
+train_ids <- sample(
+  seq_len(ndoc(leader_dfm)),
+  size = floor(0.70 * ndoc(leader_dfm)),
+  replace = FALSE
+)
+
+train_dfm <- dfm_subset(
+  leader_dfm,
+  id_numeric %in% train_ids
+)
+
+test_dfm <- dfm_subset(
+  leader_dfm,
+  !id_numeric %in% train_ids
+)
+
+table(docvars(train_dfm, "speaker_label"))
+table(docvars(test_dfm, "speaker_label"))
+```
+
+Check that there is no overlap between the training and test sets.
+
+```{r check_train_test_overlap}
+intersect(
+  docvars(train_dfm, "id_numeric"),
+  docvars(test_dfm, "id_numeric")
+)
+```
+
+## Naive Bayes classifier
+
+Naive Bayes is a simple and often surprisingly effective text classifier. It estimates the probability of features given each class.
+
+In the code below, `train_dfm` supplies the word features and `y` supplies the known speaker labels for the training speeches. We set `smooth = 1` so that words not seen with one speaker in the training set do not receive a probability of zero. The `prior = "docfreq"` option estimates the prior probability of each speaker from the training documents. Finally, `distribution = "multinomial"` tells the model to treat the DFM as word-count data, which is the standard Naive Bayes setup for text classification.
+
+```{r train_naive_bayes}
+speaker_classifier_nb <- textmodel_nb(
+  train_dfm,
+  y = docvars(train_dfm, "speaker_label"),
+  smooth = 1,
+  prior = "docfreq",
+  distribution = "multinomial"
+)
+
+summary(speaker_classifier_nb)
+```
+
+Before prediction, we match the test DFM to the training DFM so that both have the same feature columns in the same order.
+
+```{r predict_naive_bayes}
+matched_test_dfm <- dfm_match(
+  test_dfm,
+  features = featnames(train_dfm)
+)
+
+pred_speaker_nb <- predict(
+  speaker_classifier_nb,
+  newdata = matched_test_dfm,
+  type = "class"
+)
+
+head(pred_speaker_nb)
+```
+
+We can also inspect predicted class probabilities.
+
+```{r predict_naive_bayes_probabilities}
+pred_prob_nb <- predict(
+  speaker_classifier_nb,
+  newdata = matched_test_dfm,
+  type = "probability"
+)
+
+head(pred_prob_nb)
+```
+
+## Evaluate the classifier
+
+A confusion matrix compares predicted labels to true labels.
+
+```{r confusion_matrix_nb}
+tab_class_nb <- table(
+  predicted_speaker = pred_speaker_nb,
+  actual_speaker = docvars(test_dfm, "speaker_label")
+)
+
+tab_class_nb
+```
+
+The `caret::confusionMatrix()` function reports accuracy, precision, recall, and F1.
+
+```{r evaluate_naive_bayes}
+confusionMatrix(
+  tab_class_nb,
+  mode = "prec_recall"
+)
+```
+
+High performance is plausible here because Corbyn and May often spoke from different institutional positions, in different policy contexts, and with different rhetorical styles. But that also means we should be careful: the classifier may be learning more than "speaker style". It may also learn government versus opposition language, Prime Minister's Questions, Brexit-era topics, or procedural patterns.
+
+## Inspect predictive features
+
+For Naive Bayes, we can inspect features that are more strongly associated with one class than another.
+
+```{r inspect_predictive_features_nb}
+feature_probs <- as.data.frame(t(speaker_classifier_nb$param))
+feature_probs$feature <- rownames(feature_probs)
+
+epsilon <- 1e-10
+
+feature_probs <- feature_probs |>
+  mutate(
+    log_odds_corbyn = log((Corbyn + epsilon) / (May + epsilon))
+  )
+
+top_corbyn <- feature_probs |>
+  arrange(desc(log_odds_corbyn)) |>
+  select(feature, Corbyn, May, log_odds_corbyn) |>
+  head(20)
+
+top_may <- feature_probs |>
+  arrange(log_odds_corbyn) |>
+  select(feature, Corbyn, May, log_odds_corbyn) |>
+  head(20)
+
+top_corbyn
+top_may
+```
+
+This is a useful diagnostic step. If predictive features are mostly artefacts, names, or procedural terms, that tells us something about the classifier.
+
+## Logistic regression classifier
+
+Let us try a regularised logistic regression classifier.
+
+Logistic regression takes a different route from Naive Bayes. Instead of modelling how likely words are within each class, it learns weights for features that push a speech toward one label or the other. Words with positive weights provide evidence for one speaker; words with negative weights provide evidence for the other. The regularisation part keeps the model from relying too heavily on too many small, noisy word patterns, which is especially useful when the DFM has thousands of features.
+
+```{r train_logistic_regression}
+speaker_classifier_lr <- textmodel_lr(
+  train_dfm,
+  y = docvars(train_dfm, "speaker_label")
+)
+
+pred_speaker_lr <- predict(
+  speaker_classifier_lr,
+  newdata = matched_test_dfm,
+  type = "class"
+)
+
+tab_class_lr <- table(
+  predicted_speaker = pred_speaker_lr,
+  actual_speaker = docvars(test_dfm, "speaker_label")
+)
+
+tab_class_lr
+```
+
+```{r evaluate_logistic_regression}
+confusionMatrix(
+  tab_class_lr,
+  mode = "prec_recall"
+)
+```
+
+We can inspect the logistic regression coefficients. In this binary model, positive coefficients point toward the class shown in the coefficient column. Negative coefficients point toward the other class.
+
+```{r inspect_logistic_coefficients}
+lr_coefficients <- coef(speaker_classifier_lr)
+lr_coefficients <- as.matrix(lr_coefficients)
+
+head(lr_coefficients)
+
+positive_speaker <- colnames(lr_coefficients)[1]
+negative_speaker <- setdiff(
+  levels(docvars(train_dfm, "speaker_label")),
+  positive_speaker
+)
+
+lr_features <- data.frame(
+  feature = rownames(lr_coefficients),
+  coefficient = as.numeric(lr_coefficients[, 1])
+) |>
+  filter(feature != "(Intercept)")
+
+cat("Features with positive coefficients point toward:", positive_speaker, "\n")
+lr_features |>
+  arrange(desc(coefficient)) |>
+  head(20)
+
+cat("Features with negative coefficients point toward:", negative_speaker, "\n")
+lr_features |>
+  arrange(coefficient) |>
+  head(20)
+```
+
+## TF-IDF weighting
+
+So far, the DFM contains raw counts. We can also weight features using term frequency-inverse document frequency, or TF-IDF.
+
+```{r tfidf_logistic_regression}
+train_dfm_tfidf <- dfm_tfidf(train_dfm)
+matched_test_dfm_tfidf <- dfm_tfidf(matched_test_dfm)
+
+speaker_classifier_lr_tfidf <- textmodel_lr(
+  train_dfm_tfidf,
+  y = docvars(train_dfm_tfidf, "speaker_label")
+)
+
+pred_speaker_lr_tfidf <- predict(
+  speaker_classifier_lr_tfidf,
+  newdata = matched_test_dfm_tfidf,
+  type = "class"
+)
+
+tab_class_lr_tfidf <- table(
+  predicted_speaker = pred_speaker_lr_tfidf,
+  actual_speaker = docvars(test_dfm, "speaker_label")
+)
+
+tab_class_lr_tfidf
+```
+
+```{r evaluate_tfidf_logistic_regression}
+confusionMatrix(
+  tab_class_lr_tfidf,
+  mode = "prec_recall"
+)
+```
+
+## Human coding, LLM-assisted coding, and validation
+
+In this lab, the label `speaker_label` was created from metadata. In many QTA projects, the label is not available. Researchers may create labels through:
+
+- expert human coding;
+- crowd coding;
+- weak supervision;
+- LLM-assisted coding;
+- a combination of these.
+
+Regardless of how labels are created, the same principles apply:
+
+- define the coding task clearly;
+- write a codebook;
+- separate training and test data;
+- validate against held-out labels;
+- inspect errors;
+- report the classifier, features, training data, and evaluation metrics.
+
+LLMs can help produce candidate labels, explanations, and disagreement checks, but those labels still need validation. In the language we use later with `quallmer`, an LLM-assisted workflow should be codebook-centred, produce structured coding outputs, and preserve enough provenance to inspect what happened.
+
+## Practice exercises
+
+1. Create an unbalanced DFM using all Corbyn and May leader-period speeches. Call it `leader_unbalanced_dfm`. Compare the number of speeches by speaker.
+
+```{r exercise_unbalanced_leader_dfm}
+leader_unbalanced_corpus <- corpus(
+  leader_speeches,
+  text_field = "text"
+)
+
+leader_unbalanced_tokens <- tokens(
+  leader_unbalanced_corpus,
+  what = "word",
+  remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = TRUE,
+  remove_url = TRUE,
+  remove_separators = TRUE,
+  split_hyphens = FALSE
+) |>
+  tokens_tolower() |>
+  tokens_remove(stopwords("en"))
+
+leader_unbalanced_dfm <- dfm(leader_unbalanced_tokens) |>
+  dfm_trim(
+    min_docfreq = 0.01,
+    docfreq_type = "prop"
+  )
+
+dim(leader_unbalanced_dfm)
+table(docvars(leader_unbalanced_dfm, "speaker_label"))
+```
+
+2. Create a 70/30 train-test split for `leader_unbalanced_dfm`.
+
+```{r exercise_unbalanced_train_test_split}
+set.seed(20260710)
+
+docvars(leader_unbalanced_dfm, "id_numeric") <-
+  seq_len(ndoc(leader_unbalanced_dfm))
+
+unbalanced_train_ids <- sample(
+  seq_len(ndoc(leader_unbalanced_dfm)),
+  size = floor(0.70 * ndoc(leader_unbalanced_dfm)),
+  replace = FALSE
+)
+
+unbalanced_train_dfm <- dfm_subset(
+  leader_unbalanced_dfm,
+  id_numeric %in% unbalanced_train_ids
+)
+
+unbalanced_test_dfm <- dfm_subset(
+  leader_unbalanced_dfm,
+  !id_numeric %in% unbalanced_train_ids
+)
+
+table(docvars(unbalanced_train_dfm, "speaker_label"))
+table(docvars(unbalanced_test_dfm, "speaker_label"))
+
+intersect(
+  docvars(unbalanced_train_dfm, "id_numeric"),
+  docvars(unbalanced_test_dfm, "id_numeric")
+)
+```
+
+3. Train a Naive Bayes classifier on the unbalanced training set and predict the speaker labels in the unbalanced test set.
+
+```{r exercise_unbalanced_naive_bayes}
+unbalanced_classifier_nb <- textmodel_nb(
+  unbalanced_train_dfm,
+  y = docvars(unbalanced_train_dfm, "speaker_label"),
+  smooth = 1,
+  prior = "docfreq",
+  distribution = "multinomial"
+)
+
+unbalanced_test_matched_dfm <- dfm_match(
+  unbalanced_test_dfm,
+  features = featnames(unbalanced_train_dfm)
+)
+
+unbalanced_pred_speaker_nb <- predict(
+  unbalanced_classifier_nb,
+  newdata = unbalanced_test_matched_dfm,
+  type = "class"
+)
+
+head(unbalanced_pred_speaker_nb)
+```
+
+4. Create a confusion matrix and calculate precision, recall, and F1. Compare the result with the balanced model above.
+
+```{r exercise_unbalanced_evaluation}
+unbalanced_tab_class_nb <- table(
+  predicted_speaker = unbalanced_pred_speaker_nb,
+  actual_speaker = docvars(unbalanced_test_dfm, "speaker_label")
+)
+
+unbalanced_tab_class_nb
+
+confusionMatrix(
+  unbalanced_tab_class_nb,
+  mode = "prec_recall"
+)
+```
+
+The unbalanced model may have high overall accuracy because May has many more speeches. Compare precision and recall by class rather than only accuracy.
+
+5. Train a logistic regression classifier on the same unbalanced training set. Does it perform better or worse than Naive Bayes?
+
+```{r exercise_unbalanced_logistic_regression}
+unbalanced_classifier_lr <- textmodel_lr(
+  unbalanced_train_dfm,
+  y = docvars(unbalanced_train_dfm, "speaker_label")
+)
+
+unbalanced_pred_speaker_lr <- predict(
+  unbalanced_classifier_lr,
+  newdata = unbalanced_test_matched_dfm,
+  type = "class"
+)
+
+unbalanced_tab_class_lr <- table(
+  predicted_speaker = unbalanced_pred_speaker_lr,
+  actual_speaker = docvars(unbalanced_test_dfm, "speaker_label")
+)
+
+unbalanced_tab_class_lr
+
+confusionMatrix(
+  unbalanced_tab_class_lr,
+  mode = "prec_recall"
+)
+```
+
+6. Inspect the most predictive Naive Bayes features for Corbyn and May in the unbalanced model. Which features look like speaker style? Which might reflect office, time period, or topic?
+
+```{r exercise_unbalanced_predictive_features}
+unbalanced_feature_probs <- as.data.frame(t(unbalanced_classifier_nb$param))
+unbalanced_feature_probs$feature <- rownames(unbalanced_feature_probs)
+
+epsilon <- 1e-10
+
+unbalanced_feature_probs <- unbalanced_feature_probs |>
+  mutate(
+    log_odds_corbyn = log((Corbyn + epsilon) / (May + epsilon))
+  )
+
+unbalanced_feature_probs |>
+  arrange(desc(log_odds_corbyn)) |>
+  select(feature, Corbyn, May, log_odds_corbyn) |>
+  head(20)
+
+unbalanced_feature_probs |>
+  arrange(log_odds_corbyn) |>
+  select(feature, Corbyn, May, log_odds_corbyn) |>
+  head(20)
+```
+
+7. Write a short reflection: if you were classifying whether speeches are about crime and public safety, rather than classifying speaker, how would you obtain and validate training labels? Where might LLM-assisted coding help, and where would you still need human judgement?
+
+```{r exercise_label_reflection}
+# A good workflow would start with a clear codebook that defines what counts as
+# a crime and public safety speech. I would hand-code a stratified sample across
+# speakers, parties, years, and speech lengths, then use inter-coder checks or
+# adjudication to improve the coding rules.
+#
+# LLM-assisted coding could help propose candidate coding rules, flag ambiguous
+# cases, or pre-code a larger pool of speeches after the codebook is stable. I
+# would still validate those labels against human-coded data, inspect
+# disagreement cases, and report performance on a held-out validation set.
+#
+# Human judgement is especially important for borderline cases, such as speeches
+# that mention police only in passing, procedural contributions, or speeches
+# where public safety language is used metaphorically rather than as the main
+# topic.
+```
