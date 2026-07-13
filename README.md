@@ -35,7 +35,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 
 ## Acknowledgements
 
-I thank Stefan Müller for sharing his lab session materials for his QTA course at UCD.
+I thank Stefan Müller for sharing his lab session materials for his QTA course at UCD. I have relied on Codex for streamlining the lab sessions, and for integrating examples from the lab sessions in to the lecture slides.   
 
 ## Course schedule
 
