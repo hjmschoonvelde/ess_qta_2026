@@ -1,0 +1,812 @@
+---
+title: "QTA Lab 06: Scaling House of Commons speeches"
+format:
+  gfm: default
+editor: source
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  results = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+## Learning goals
+
+In this lab, you will learn how to:
+
+- distinguish supervised, unsupervised, and semi-supervised scaling methods;
+- aggregate short parliamentary speeches into longer political documents;
+- estimate a Wordscores model using reference texts;
+- estimate a Wordfish model without reference scores;
+- apply Latent Semantic Scaling (LSS) to economic language;
+- compare what different scaling methods appear to measure;
+- validate whether an estimated scale means what we think it means;
+- think about how LLMs can help, and mislead, when choosing anchors, seed words, or prompts.
+
+The running example is a House of Commons leader-period sample. It contains up to 200 speeches by each Labour and Conservative party leader in each legislative period from the 47th Parliament, beginning with the 3 May 1979 general election, to the 58th Parliament, beginning with the 4 July 2024 general election.
+
+Scaling methods often work better on longer texts than on single short interventions, so we combine speeches into leader-election-period documents: one document for each party leader in each legislative period in which they served.
+
+The substantive problem is simple: if we place leader-election-period documents on one dimension, what does that dimension actually capture? It might be party ideology, leader style, election period, government/opposition role, policy agenda, rhetorical style, or some mixture of these.
+
+## Load packages
+
+```{r load_packages}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(quanteda)
+library(quanteda.textmodels)
+library(quanteda.textstats)
+library(quanteda.textplots)
+library(LSX)
+
+party_colors <- c(
+  "Conservative" = "#003B73",
+  "Labour" = "#B00020"
+)
+```
+
+## Read and prepare the data
+
+```{r read_hoc_sample}
+data_path <- "Data/hc_leader_period_sample_1979_2024.rds"
+
+hoc <- readRDS(data_path)
+
+hoc <- hoc |>
+  mutate(year = as.integer(format(date, "%Y")))
+```
+
+The election dates were scraped from Wikipedia's list of UK general elections. Labour and Conservative leadership dates were scraped from the Wikipedia leader tables. These dates were then used to sample from the full House of Commons dataset.
+
+The next block checks the sample and then aggregates individual speeches into one document per leader-election-period combination. As a result, the unit of analysis becomes a party leader in a legislative period, not an individual speech.
+
+For grouping, we need the party, leader, and election number. The remaining period variables are metadata that we carry along with `first()`.
+
+```{r create_election_period_documents}
+leader_counts <- hoc |>
+  count(
+    election_no,
+    election_period,
+    party,
+    leader,
+    leader_period_start,
+    leader_period_end,
+    name = "n_speeches"
+  )
+
+leader_counts
+
+scaling_docs <- hoc |>
+  group_by(
+    party_family = party,
+    leader,
+    election_no
+  ) |>
+  summarise(
+    period = first(election_period),
+    election_date = first(election_date),
+    next_election_date = first(next_election_date),
+    leader_period_start = first(leader_period_start),
+    leader_period_end = first(leader_period_end),
+    text = paste(text, collapse = " "),
+    n_speeches = n(),
+    .groups = "drop"
+  ) |>
+  mutate(
+    leader_period_doc = paste(party_family, leader, period, sep = ": "),
+    party_period = leader_period_doc
+  )
+
+scaling_docs |>
+  select(party_family, leader, election_no, period, leader_period_start, leader_period_end, n_speeches)
+```
+
+## Create a corpus, tokens, and DFM
+
+```{r create_scaling_corpus}
+scaling_corpus <- corpus(
+  scaling_docs,
+  text_field = "text",
+  docid_field = "party_period"
+)
+
+ndoc(scaling_corpus)
+```
+
+We remove very common parliamentary language Some of these words are substantively meaningful in other contexts, but here they mostly identify House of Commons procedure.
+
+```{r tokenize_scaling_documents}
+scaling_tokens <- tokens(
+  scaling_corpus,
+  what = "word",
+  remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = TRUE,
+  remove_url = TRUE,
+  remove_separators = TRUE,
+  split_hyphens = FALSE
+) |>
+  tokens_tolower() |>
+  tokens_remove(stopwords(source = "smart")) |>
+  tokens_remove(
+    c(
+      "hon", "member", "right", "friend", "sir", "gentleman", "lady", "house", "commons", "speaker", "minister", "secretary", "mr", "mrs", "ms", "madam", "lord"
+    )
+  )
+```
+
+As in earlier labs, we can detect common multi-word expressions and compound the most frequent collocations.
+
+```{r detect_scaling_collocations}
+hoc_collocations <- scaling_tokens |>
+  textstat_collocations(
+    min_count = 10,
+    size = 2:3
+  ) |>
+  arrange(desc(lambda))
+
+head(hoc_collocations, 20)
+```
+
+```{r compound_scaling_collocations}
+if (nrow(hoc_collocations) > 0) {
+  scaling_tokens <- tokens_compound(
+    scaling_tokens,
+    phrase(head(hoc_collocations$collocation, 50))
+  )
+}
+```
+
+```{r create_scaling_dfm}
+scaling_dfm <- dfm(scaling_tokens) |>
+  dfm_trim(
+    min_termfreq = 5,
+    min_docfreq = 2
+  )
+
+dim(scaling_dfm)
+topfeatures(scaling_dfm, 30)
+```
+
+At this point, `scaling_dfm` is the representation used by Wordscores and Wordfish. Rows are leader-election-period documents; columns are word features; cells are word counts. Different scaling methods use this same DFM in different ways.
+
+## Wordscores
+
+Wordscores is a supervised scaling method. We give known reference scores to anchor texts, and the model estimates word and document scores from those anchors.
+
+The intuition is:
+
+```text
+reference documents -> word scores -> new document scores
+```
+
+If Labour reference documents use a word frequently, that word is pulled toward the Labour side of the scale. If Conservative reference documents use it frequently, it is pulled toward the Conservative side. New documents are then positioned by the weighted average of the words they contain.
+
+Here, we use Neil Kinnock and Margaret Thatcher in the 48th Parliament (1983-1987) as the reference texts. Kinnock is the Labour anchor (-1), and Thatcher is the Conservative anchor (+1). All other leader-period documents are scored by the model, but they do not define the scale.
+
+```{r create_wordscores_reference_scores}
+wordscores_anchor_period <- "48th Parliament (1983-1987)"
+labour_anchor_leader <- "Neil Kinnock"
+conservative_anchor_leader <- "Margaret Thatcher"
+
+docvars(scaling_dfm, "reference_score") <- case_when(
+  docvars(scaling_dfm, "party_family") == "Labour" &
+    docvars(scaling_dfm, "leader") == labour_anchor_leader &
+    docvars(scaling_dfm, "period") == wordscores_anchor_period ~ -1,
+  docvars(scaling_dfm, "party_family") == "Conservative" &
+    docvars(scaling_dfm, "leader") == conservative_anchor_leader &
+    docvars(scaling_dfm, "period") == wordscores_anchor_period ~ 1,
+  TRUE ~ NA_real_
+)
+
+data.frame(
+  document = docnames(scaling_dfm),
+  party = docvars(scaling_dfm, "party_family"),
+  leader = docvars(scaling_dfm, "leader"),
+  period = docvars(scaling_dfm, "period"),
+  reference_score = docvars(scaling_dfm, "reference_score")
+) |>
+  mutate(
+    role = if_else(
+      is.na(reference_score),
+      "virgin text",
+      "reference text"
+    )
+  ) |>
+  arrange(is.na(reference_score), party, period)
+```
+
+Only two leader-period documents define the scale. This is close to the original Wordscores logic: use a small number of substantively meaningful reference texts, then ask where the other documents fall relative to those anchors.
+```{r check_wordscores_reference_scores}
+count(
+  data.frame(reference_score = docvars(scaling_dfm, "reference_score")),
+  reference_score
+)
+```
+
+```{r train_wordscores}
+hoc_wordscores <- textmodel_wordscores(
+  scaling_dfm,
+  y = docvars(scaling_dfm, "reference_score"),
+  smooth = 1
+)
+
+summary(hoc_wordscores, n = 10)
+```
+
+The `smooth = 1` setting avoids zero probabilities for words that appear in one set of reference documents but not the other. This is useful in sparse text data, where many words appear in only a small number of documents.
+
+Inspect words at each end of the Wordscores dimension.
+
+```{r inspect_wordscores_features}
+head(sort(hoc_wordscores$wordscores), 20)
+tail(sort(hoc_wordscores$wordscores), 20)
+```
+
+```{r plot_wordscores_feature_distribution}
+hist(
+  hoc_wordscores$wordscores,
+  col = "grey70",
+  border = "white",
+  main = "Distribution of Wordscores Feature Scores",
+  xlab = "Feature score"
+)
+```
+
+Now predict document scores for all leader-election-period documents.
+
+```{r predict_wordscores}
+hoc_wordscores_pred <- predict(
+  hoc_wordscores,
+  newdata = scaling_dfm,
+  se = TRUE
+)
+
+wordscores_document_scores <- data.frame(
+  party_period = docnames(scaling_dfm),
+  party_family = docvars(scaling_dfm, "party_family"),
+  leader = docvars(scaling_dfm, "leader"),
+  period = docvars(scaling_dfm, "period"),
+  reference_score = docvars(scaling_dfm, "reference_score"),
+  wordscores = as.numeric(hoc_wordscores_pred$fit),
+  se = as.numeric(hoc_wordscores_pred$se.fit)
+)
+
+wordscores_document_scores <- wordscores_document_scores |>
+  mutate(
+    party_short = recode(
+      party_family,
+      "Conservative" = "Con",
+      "Labour" = "Lab"
+    ),
+    period_years = str_extract(period, "\\d{4}-\\d{4}"),
+    leader_short = case_when(
+      leader == "Iain Duncan Smith" ~ "Duncan Smith",
+      TRUE ~ str_replace(leader, "^.* ", "")
+    ),
+    plot_label = paste(party_short, leader_short, period_years)
+)
+
+wordscores_document_scores |>
+  arrange(wordscores)
+```
+
+The two reference documents define the endpoints of the scale, so they sit far away from the other documents. To make the predicted positions easier to inspect, the plot below focuses on the non-reference leader-period documents only.
+
+```{r plot_wordscores_documents}
+#| fig.height: 7
+
+wordscores_virgin_scores <- wordscores_document_scores |>
+  filter(is.na(reference_score))
+
+ggplot(
+  wordscores_virgin_scores,
+  aes(
+    x = reorder(plot_label, wordscores),
+    y = wordscores,
+    ymin = wordscores - 1.96 * se,
+    ymax = wordscores + 1.96 * se,
+    color = party_family
+  )
+) +
+  geom_pointrange() +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "Predicted Wordscores position",
+    color = "Party family"
+  ) +
+  scale_color_manual(values = party_colors) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 9),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+The interpretation depends heavily on the reference texts. If the Labour and Conservative documents differ by period, topic, office status, or parliamentary role, Wordscores may partly pick up those differences too.
+
+## Wordfish
+
+Wordfish is an unsupervised scaling method. It estimates a latent dimension without reference scores. Instead of telling the model where Labour and Conservative should sit, we ask it to find the strongest pattern of word-use differences in the DFM.
+
+This makes Wordfish powerful but also risky. The strongest pattern may be ideological, but it may also be election period, leader style, parliamentary role, policy agenda, or style. We still choose the direction of the scale after estimation. To make the Wordfish scale easier to compare with Wordscores, we orient it using the same 1983-1987 leader-period documents: Neil Kinnock lower than Margaret Thatcher. This does not make Wordfish supervised; it only fixes which side of the estimated dimension is treated as low or high.
+
+```{r train_wordfish}
+labour_anchor_index <- which(
+  docvars(scaling_dfm, "party_family") == "Labour" &
+    docvars(scaling_dfm, "leader") == labour_anchor_leader &
+    docvars(scaling_dfm, "period") == wordscores_anchor_period
+)
+
+conservative_anchor_index <- which(
+  docvars(scaling_dfm, "party_family") == "Conservative" &
+    docvars(scaling_dfm, "leader") == conservative_anchor_leader &
+    docvars(scaling_dfm, "period") == wordscores_anchor_period
+)
+
+hoc_wordfish <- textmodel_wordfish(
+  scaling_dfm,
+  dir = c(labour_anchor_index, conservative_anchor_index)
+)
+
+summary(hoc_wordfish)
+```
+
+## Inspect Wordfish features
+
+Wordfish estimates word-level parameters. The `beta` parameter captures a word's estimated position on the latent dimension. Words with large positive or negative `beta` values are especially useful for interpreting what the scale seems to measure. The `psi` parameter captures how common a word is overall.
+
+```{r inspect_wordfish_features}
+wordfish_feature_scores <- data.frame(
+  beta = hoc_wordfish$beta,
+  psi = hoc_wordfish$psi,
+  feature = hoc_wordfish$features
+)
+
+wordfish_feature_scores |>
+  arrange(beta) |>
+  head(20)
+
+wordfish_feature_scores |>
+  arrange(desc(beta)) |>
+  head(20)
+```
+
+```{r plot_wordfish_features}
+wordfish_feature_labels <- bind_rows(
+  wordfish_feature_scores |>
+    slice_min(order_by = beta, n = 10, with_ties = FALSE) |>
+    mutate(direction = "Low beta"),
+  wordfish_feature_scores |>
+    slice_max(order_by = beta, n = 10, with_ties = FALSE) |>
+    mutate(direction = "High beta")
+)
+
+ggplot(wordfish_feature_scores, aes(x = beta, y = psi)) +
+  geom_point(color = "grey70", size = 0.8) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey60") +
+  ggrepel::geom_text_repel(
+    data = wordfish_feature_labels,
+    aes(label = feature, color = direction),
+    size = 3,
+    nudge_x = if_else(wordfish_feature_labels$direction == "Low beta", -0.6, 0.6),
+    max.overlaps = Inf,
+    box.padding = 0.25,
+    point.padding = 0.15,
+    min.segment.length = 0,
+    seed = 20260713,
+    show.legend = FALSE
+  ) +
+  labs(
+    x = "Wordfish beta",
+    y = "Wordfish psi",
+    color = NULL
+  ) +
+  scale_color_manual(
+    values = c("Low beta" = "#B00020", "High beta" = "#003B73")
+  ) +
+  scale_x_continuous(expand = expansion(mult = c(0.15, 0.30))) +
+  coord_cartesian(clip = "off") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.margin = margin(5.5, 35, 5.5, 35)
+  )
+```
+
+## Inspect Wordfish document positions
+
+The document positions are stored in `theta`. These are the estimated locations of the leader-election-period documents on the Wordfish dimension. The sign of the scale is arbitrary until we orient it, so interpretation should focus on the ordering and on the words that define the extremes.
+
+```{r inspect_wordfish_documents}
+wordfish_document_scores <- data.frame(
+  party_period = docnames(scaling_dfm),
+  party_family = docvars(scaling_dfm, "party_family"),
+  leader = docvars(scaling_dfm, "leader"),
+  period = docvars(scaling_dfm, "period"),
+  theta = hoc_wordfish$theta,
+  se = hoc_wordfish$se.theta
+)
+
+wordfish_document_scores <- wordfish_document_scores |>
+  mutate(
+    party_short = recode(
+      party_family,
+      "Conservative" = "Con",
+      "Labour" = "Lab"
+    ),
+    period_years = str_extract(period, "\\d{4}-\\d{4}"),
+    leader_short = case_when(
+      leader == "Iain Duncan Smith" ~ "Duncan Smith",
+      TRUE ~ str_replace(leader, "^.* ", "")
+    ),
+    plot_label = paste(party_short, leader_short, period_years)
+  )
+
+wordfish_document_scores |>
+  arrange(theta)
+```
+
+```{r plot_wordfish_documents}
+#| fig.height: 7
+
+ggplot(
+  wordfish_document_scores,
+  aes(
+    x = reorder(plot_label, theta),
+    y = theta,
+    ymin = theta - 1.96 * se,
+    ymax = theta + 1.96 * se,
+    color = party_family
+  )
+) +
+  geom_pointrange() +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "Wordfish theta",
+    color = "Party family"
+  ) +
+  scale_color_manual(values = party_colors) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 9),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+## Compare Wordscores and Wordfish
+
+If the supervised and unsupervised models recover a similar dimension, their document scores should be correlated. If not, they may be measuring different mixtures of party, time, agenda, and style.
+
+This comparison is a validation step. We are not asking which method is automatically "correct." We are asking what kind of textual signal each method seems to have found.
+
+```{r compare_wordscores_wordfish}
+comparison_scores <- wordscores_document_scores |>
+  select(party_period, party_family, period, wordscores) |>
+  left_join(
+    wordfish_document_scores |>
+      select(party_period, wordfish = theta),
+    by = "party_period"
+  )
+
+ggplot(
+  comparison_scores,
+  aes(
+    x = wordscores,
+    y = wordfish,
+    label = party_period,
+    color = party_family
+  )
+) +
+  geom_point(size = 2.5) +
+  geom_text(
+    hjust = 0,
+    vjust = 0,
+    size = 3,
+    check_overlap = TRUE
+  ) +
+  labs(
+    x = "Wordscores position",
+    y = "Wordfish position",
+    color = "Party family"
+  ) +
+  scale_color_manual(values = party_colors) +
+  theme_minimal()
+
+cor.test(
+  comparison_scores$wordscores,
+  comparison_scores$wordfish
+)
+```
+
+```{r compare_scaled_positions}
+comparison_long <- rbind(
+  data.frame(
+    party_period = comparison_scores$party_period,
+    party_family = comparison_scores$party_family,
+    method = "Wordscores",
+    score = as.numeric(scale(comparison_scores$wordscores))
+  ),
+  data.frame(
+    party_period = comparison_scores$party_period,
+    party_family = comparison_scores$party_family,
+    method = "Wordfish",
+    score = as.numeric(scale(comparison_scores$wordfish))
+  )
+)
+
+ggplot(
+  comparison_long,
+  aes(
+    x = score,
+    y = reorder(party_period, score),
+    color = party_family
+  )
+) +
+  geom_point(size = 2) +
+  facet_wrap(~ method, scales = "free_x") +
+  labs(
+    x = "Standardized score",
+    y = NULL,
+    color = "Party family"
+  ) +
+  scale_color_manual(values = party_colors) +
+  theme_minimal()
+```
+
+## Latent Semantic Scaling
+
+Latent Semantic Scaling (LSS) is semi-supervised. We provide seed words, then the model uses distributional information from the corpus to infer polarity scores for other words.
+
+The intuition is:
+
+```text
+seed words -> nearby context words -> document scores
+```
+
+This makes LSS a bridge between dictionary methods and embeddings. Like a dictionary, we provide a small amount of conceptual guidance. Like embeddings, the method uses the corpus to learn which other words occur in similar contexts.
+
+Here, we use the built-in positive and negative seed words, then focus on terms that occur in the context of economic language. Substantively, this asks: when parties talk near economic terms, is the surrounding language more positive or negative according to this seed-based semantic scale?
+
+We will move through the LSS workflow in small steps:
+
+1. create a sentence-level corpus;
+2. turn those sentences into a DFM;
+3. define the seed words that anchor the scale;
+4. identify economy-related context terms;
+5. estimate the LSS model and inspect the results.
+
+For classroom speed, we use a reproducible sample of speeches from the leader-period corpus. The model still uses sentence-level text internally, because LSS learns word meaning from local context.
+
+```{r prepare_lss_speeches}
+lss_docs <- hoc |>
+  filter(
+    party %in% c("Conservative", "Labour")
+  )
+
+set.seed(20260710)
+
+sample_size <- min(nrow(lss_docs), 1200)
+lss_docs <- slice_sample(lss_docs, n = sample_size)
+
+lss_corpus <- corpus(
+  lss_docs,
+  text_field = "text"
+)
+
+lss_sentence_corpus <- corpus_reshape(
+  lss_corpus,
+  to = "sentences"
+)
+```
+
+The next block creates the representation used by LSS. Each row is now a sentence; each column is a feature. We remove punctuation, symbols, numbers, URLs, and stopwords so that the model is driven more by substantive language than by parliamentary glue words.
+
+```{r create_lss_dfm}
+lss_tokens <- tokens(
+  lss_sentence_corpus,
+  what = "word",
+  remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = TRUE,
+  remove_url = TRUE,
+  remove_separators = TRUE,
+  split_hyphens = FALSE
+) |>
+  tokens_tolower() |>
+  tokens_remove(stopwords("en"))
+
+lss_dfm <- dfm(lss_tokens) |>
+  dfm_trim(min_termfreq = 5)
+
+dim(lss_dfm)
+topfeatures(lss_dfm, 30)
+```
+
+The seed words define the poles of the scale. Here we use the positive and negative seed words that come with `LSX`. This gives us a general positive-negative semantic scale, which we will apply only to terms that appear near economic language.
+
+```{r create_lss_seed_words}
+sentiment_seed <- as.seedwords(data_dictionary_sentiment)
+
+sentiment_seed
+```
+
+We identify words that occur near economic search terms. The resulting `economy_terms` object limits the model to language that is plausibly connected to the economy, instead of scoring every word in the corpus.
+
+```{r find_economy_context_terms}
+economy_patterns <- c(
+  "econom*",
+  "tax*",
+  "budget*",
+  "inflation",
+  "growth"
+)
+
+economy_terms <- char_context(
+  lss_tokens,
+  pattern = economy_patterns,
+  p = 0.05
+)
+
+economy_terms <- unique(economy_terms)
+economy_terms <- economy_terms[economy_terms %in% featnames(lss_dfm)]
+
+head(economy_terms, 50)
+length(economy_terms)
+```
+
+Now we estimate the LSS model. The `seeds` argument tells the model what the two semantic poles look like. The `terms` argument tells the model which context terms to score. The `k = 100` argument controls the number of latent dimensions used internally when estimating semantic proximity.
+
+```{r train_lss}
+hoc_lss <- textmodel_lss(
+  lss_dfm,
+  seeds = sentiment_seed,
+  terms = economy_terms,
+  k = 100,
+  cache = FALSE
+)
+```
+
+In a research project, these choices should be checked for robustness: different seeds, different economic search terms, and different values of `k` can all change what the scale captures.
+
+```{r inspect_lss_terms}
+lss_term_scores <- data.frame(
+  feature = names(coef(hoc_lss)),
+  score = as.numeric(coef(hoc_lss))
+)
+
+lss_term_scores |>
+  arrange(score) |>
+  head(20)
+
+lss_term_scores |>
+  arrange(desc(score)) |>
+  head(20)
+```
+
+Lower-scoring terms are closer to the negative seed pole; higher-scoring terms are closer to the positive seed pole. Always inspect these terms before interpreting the document scores.
+
+To obtain party-level scores, we group the sentence-level DFM by party and predict with the LSS model. This asks whether the economy-related language used by each party is more positive or negative on this seed-based scale.
+
+```{r predict_lss_by_party}
+lss_party_dfm <- dfm_group(
+  lss_dfm,
+  groups = docvars(lss_dfm, "party")
+)
+
+hoc_lss_party_pred <- predict(
+  hoc_lss,
+  newdata = lss_party_dfm,
+  se = TRUE
+)
+
+lss_party_scores <- data.frame(
+  party = docnames(lss_party_dfm),
+  fit = as.numeric(hoc_lss_party_pred$fit),
+  se = as.numeric(hoc_lss_party_pred$se.fit)
+)
+
+lss_party_scores |>
+  arrange(fit)
+```
+
+```{r plot_lss_by_party}
+ggplot(
+  lss_party_scores,
+  aes(
+    x = reorder(party, fit),
+    y = fit,
+    ymin = fit - 1.96 * se,
+    ymax = fit + 1.96 * se,
+    color = party
+  )
+) +
+  geom_pointrange() +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "LSS score for economic context",
+    color = "Party"
+  ) +
+  scale_color_manual(values = party_colors) +
+  theme_minimal()
+```
+
+## Instruction-based scaling and LLMs
+
+LLMs can be useful when developing scaling analyses. For example, they can help brainstorm possible reference texts, propose seed words, identify parliamentary formulae to remove, or explain surprising features. They can also be used more directly to assign scores to texts from a written scale definition.
+
+For example, an instruction-based scaling prompt might ask an LLM to place each speech on a -1 to +1 economic left-right scale and return a short justification. That can be useful, but it is not automatically a valid measurement model.
+
+Scaling choices remain research choices. Reference texts, seed words, prompts, and validation cases define what the scale can mean, so they need theoretical justification and validation against known cases.
+
+In practice, you should inspect:
+
+- whether anchor texts differ on the intended dimension;
+- whether high-scoring and low-scoring features make substantive sense;
+- whether results change when anchors, periods, or preprocessing choices change;
+- whether an LLM-proposed seed list introduces ideological, temporal, or stylistic bias.
+
+## Practice exercises
+
+1. Inspect the `leader_counts` and `scaling_docs` objects. Which leader-period documents contain fewer than 200 speeches? How many leader-period documents are created after aggregation?
+
+```{r exercise_inspect_scaling_docs}
+# Your answer here
+```
+
+2. Estimate an alternative Wordscores model using the most recent Labour and Conservative leader-period documents as reference texts. Use Labour as -1 and Conservative as +1.
+
+```{r exercise_recent_wordscores}
+# Your answer here
+```
+
+3. Predict document scores from the alternative Wordscores model and plot the results. How do they compare with the original Wordscores scores?
+
+```{r exercise_predict_recent_wordscores}
+# Your answer here
+```
+
+4. Re-estimate Wordfish using the same 1983-1987 Kinnock and Thatcher documents to orient the scale. Display the document positions.
+
+```{r exercise_wordfish_anchor_direction}
+# Your answer here
+```
+
+5. Identify the 20 Wordfish features with the largest absolute `beta` values. What kinds of language seem to define the dimension?
+
+```{r exercise_extreme_wordfish_features}
+# Your answer here
+```
+
+6. Use LSS to scale sentiment around health language rather than economic language. Search for context terms around `health*`, `nhs`, `hospital*`, and `patient*`, then fit a model called `hoc_health_lss`.
+
+```{r exercise_health_lss}
+# Your answer here
+```
+
+7. Predict health-context LSS scores by party and plot them.
+
+```{r exercise_health_lss_by_party}
+# Your answer here
+```
+
+8. Write a short reflection: where could an LLM help when building a Wordscores or LSS analysis, and which decisions should remain under human control?
+
+```{r exercise_scaling_llm_reflection}
+# Your notes here
+```
