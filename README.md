@@ -14,7 +14,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 | --- | :---: | --- | :---: |
 | July 6 | [Slides PDF](Slides/Day_1/Slides_QTA_1.pdf) | July 13 | [Slides PDF](Slides/Day_6/Slides_QTA_6.pdf) |
 | July 7 | [Slides PDF](Slides/Day_2/Slides_QTA_2.pdf) | July 14 | [Slides PDF](Slides/Day_7/Slides_QTA_7.pdf) |
-| July 8 | [Slides PDF](Slides/Day_3/Slides_QTA_3.pdf) | July 15 | Coming soon |
+| July 8 | [Slides PDF](Slides/Day_3/Slides_QTA_3.pdf) | July 15 | Coming soon|
 | July 9 | [Slides PDF](Slides/Day_4/Slides_QTA_4.pdf) | July 16 | Coming soon |
 | July 10 | [Slides PDF](Slides/Day_5/Slides_QTA_5.pdf) | July 17 | Coming soon |
 
@@ -29,7 +29,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 | July 10 | [Quarto file](Lab_sessions/Day_5/Lab_Session_QTA_5.qmd); [data](Lab_sessions/Day_5/hc_corbyn_may_party_leaders_2015_2020.rds); [view lab](Lab_sessions/Day_5/Lab_Session_QTA_5.md) | [Quarto file](Lab_sessions/Day_5/Lab_Session_QTA_5_Answers.qmd); [view answers](Lab_sessions/Day_5/Lab_Session_QTA_5_Answers.md) |
 | July 13 | [Quarto file](Lab_sessions/Day_6/Lab_Session_QTA_6.qmd); [data](Lab_sessions/Day_6/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_6/Lab_Session_QTA_6.md) | [Quarto file](Lab_sessions/Day_6/Lab_Session_QTA_6_Answers.qmd); [view answers](Lab_sessions/Day_6/Lab_Session_QTA_6_Answers.md) |
 | July 14 | [Quarto file](Lab_sessions/Day_7/Lab_Session_QTA_7.qmd); [data](Lab_sessions/Day_7/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_7/Lab_Session_QTA_7.md) | [Quarto file](Lab_sessions/Day_7/Lab_Session_QTA_7_Answers.qmd); [view answers](Lab_sessions/Day_7/Lab_Session_QTA_7_Answers.md) |
-| July 15 | Coming soon | Coming soon |
+| July 15 | [Quarto file](Lab_sessions/Day_8/Lab_Session_QTA_8.qmd); [data](Lab_sessions/Day_8/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_8/Lab_Session_QTA_8.md) | [Quarto file](Lab_sessions/Day_8/Lab_Session_QTA_8_Answers.qmd); [view answers](Lab_sessions/Day_8/Lab_Session_QTA_8_Answers.md) |
 | July 16 | Coming soon | Coming soon |
 | July 17 | Coming soon | Coming soon |
 
@@ -121,7 +121,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: New forms of textual data: multilingual text, speech-to-text, multimodal data. 
 
--	**Lab**: Using UDPipe for tokenisation, lemmatisation, POS tagging, and dependency parsing; building POS-specific DFMs; comparing parties with keyness, topics, and sentiment.
+-	**Lab**: Using UDPipe for tokenisation, lemmatisation, POS tagging, and dependency parsing; downloading language-specific models; building POS-specific DFMs; comparing parties with keyness; and creating validation samples for model-generated labels.
 
 - **Readings**:
 

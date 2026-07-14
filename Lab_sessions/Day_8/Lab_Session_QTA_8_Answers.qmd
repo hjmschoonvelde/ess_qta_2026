@@ -1,0 +1,641 @@
+---
+title: "QTA Lab 08 Answers: NLP Processing and Model-Generated Annotation"
+format:
+  gfm: default
+editor: source
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  results = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+## Learning goals
+
+In this lab, you will learn how to:
+
+- use UDPipe to tokenize, lemmatize, POS-tag, and dependency-parse text;
+- move between UDPipe output and quanteda objects;
+- build noun- and verb-only DFMs;
+- compare verb usage across parties with keyness;
+- use dependency relations to inspect grammatical roles;
+- inspect NLP annotations as a model-generated data product;
+- create a small validation sample for model-generated labels;
+- think about how classical NLP preprocessing complements LLM-based workflows.
+
+The running example is again the House of Commons sample. We use a small sample of recent speeches because UDPipe performs linguistic annotation token by token, which is slower than ordinary quanteda tokenization.
+
+This lab connects to the lecture theme of *new forms of data*. UDPipe does not just "clean" text. It produces new annotations: lemmas, part-of-speech tags, and dependency relations. Those annotations can be useful, but they should also be inspected before we treat them as evidence.
+
+```text
+speech text -> UDPipe annotation -> structured token table -> features -> validation
+```
+
+## Load Packages
+
+```{r load_packages}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(quanteda)
+library(quanteda.textstats)
+library(udpipe)
+```
+
+## Download UDPipe Models
+
+If you want to work with UDPipe models, you first need to download them. The model should match the language of your corpus. For example, if you want to work with a Dutch corpus, you need a Dutch model.
+
+UDPipe models are too large to store in the course GitHub repository. Instead, download the models you need once and keep them in a local `models` folder. Run this chunk when you first work through the lab, or when you move the lab to a new computer. The chunk is not evaluated when the document is rendered, because downloading depends on an internet connection and only needs to happen once.
+
+```{r download_udpipe_models}
+#| eval: false
+#| echo: true
+#| message: false
+#| warning: false
+
+model_dir <- "models"
+dir.create(model_dir, showWarnings = FALSE)
+
+udmodel_english <- udpipe_download_model(
+  language = "english-ewt",
+  model_dir = model_dir
+)
+
+udmodel_dutch <- udpipe_download_model(
+  language = "dutch",
+  model_dir = model_dir
+)
+
+udmodel_german <- udpipe_download_model(
+  language = "german-gsd",
+  model_dir = model_dir
+)
+
+str(udmodel_dutch)
+```
+
+After downloading, we tell R where the model files are stored. If you downloaded the models yourself, they should be in the `models` folder.
+
+```{r define_model_paths}
+model_dir <- "models"
+
+if (!dir.exists(model_dir)) {
+  model_dir <- "Labs/Lab_8"
+}
+
+english_model_path <- file.path(model_dir, "english-ewt-ud-2.5-191206.udpipe")
+dutch_model_path <- file.path(model_dir, "dutch-alpino-ud-2.5-191206.udpipe")
+german_model_path <- file.path(model_dir, "german-gsd-ud-2.5-191206.udpipe")
+
+file.exists(english_model_path)
+file.exists(dutch_model_path)
+file.exists(german_model_path)
+```
+
+## Read And Sample The Data
+
+```{r read_hoc_sample}
+data_path <- "Data/hc_sample_1945_2025.rds"
+
+hoc <- readRDS(data_path)
+
+hoc <- hoc |>
+  mutate(
+    year = as.integer(format(date, "%Y")),
+    doc_id = paste0("hoc_", row_number()),
+    party_group = case_when(
+      party %in% c(
+        "Conservative",
+        "Labour",
+        "Liberal Democrat",
+        "Scottish National Party"
+      ) ~ party,
+      TRUE ~ "Other"
+    )
+  )
+```
+
+We keep recent speeches with at least 80 terms, then draw a reproducible sample. This gives UDPipe enough text to annotate while keeping the lab fast.
+
+```{r sample_hoc_for_udpipe}
+udpipe_pool <- hoc |>
+  filter(
+    year >= 1997,
+    terms >= 80,
+    party_group != "Other",
+    !is.na(text),
+    text != ""
+  )
+
+set.seed(20260710)
+
+udpipe_docs <- udpipe_pool |>
+  slice_sample(n = min(150, nrow(udpipe_pool)))
+
+udpipe_docs |>
+  count(party_group, sort = TRUE)
+```
+
+This sample is designed for speed, not representativeness. Before interpreting any party comparison, we should inspect what ended up in the sample.
+
+```{r inspect_udpipe_sample}
+udpipe_docs |>
+  count(party_group, sort = TRUE)
+
+udpipe_docs |>
+  mutate(decade = paste0(floor(year / 10) * 10, "s")) |>
+  count(decade, party_group) |>
+  arrange(decade, party_group)
+```
+
+This is a small version of the bias discussion from the lecture. Our sample could still reflect resource bias, retrieval bias, medium bias, or incentive bias in the original corpus. It can also reflect a new practical bias introduced by our lab design: longer recent speeches are more likely to be included because they are easier for this exercise.
+
+## Load The UDPipe Model
+
+We start with the English model because the House of Commons speeches are in English.
+
+```{r load_udpipe_model}
+english_model <- udpipe_load_model(english_model_path)
+```
+
+## Annotate The Speeches
+
+UDPipe works with character vectors. We pass the speech texts and the HoC document ids so that we can later join the annotations back to metadata.
+
+```{r annotate_hoc_speeches}
+parsed_tokens <- udpipe_annotate(
+  english_model,
+  x = udpipe_docs$text,
+  doc_id = udpipe_docs$doc_id
+) |>
+  as.data.frame() |>
+  as_tibble()
+```
+
+```{r inspect_parsed_tokens}
+parsed_tokens |>
+  select(doc_id, sentence_id, token_id, token, lemma, upos, dep_rel) |>
+  slice_head(n = 10)
+
+glimpse(parsed_tokens)
+```
+
+For this lab, the most important columns are:
+
+- `doc_id`: the speech identifier;
+- `token`: the original token;
+- `lemma`: the lemmatized token;
+- `upos`: the universal part-of-speech tag;
+- `xpos`: the more detailed Penn Treebank tag;
+- `dep_rel`: the dependency relation.
+
+```{r select_relevant_annotations}
+parsed_tokens <- parsed_tokens |>
+  select(
+    doc_id,
+    sentence_id,
+    token_id,
+    token,
+    lemma,
+    upos,
+    xpos,
+    head_token_id,
+    dep_rel
+  ) |>
+  mutate(lemma = str_to_lower(lemma))
+
+head(parsed_tokens)
+```
+
+## Validate The Annotation Product
+
+Before building features from the annotations, inspect the intermediate product. Are the lemmas plausible? Do the POS tags look sensible? Are parliamentary terms or proper names tagged in ways that make sense for your question?
+
+```{r inspect_annotation_quality}
+set.seed(20260710)
+
+parsed_tokens |>
+  filter(upos %in% c("NOUN", "VERB", "ADJ", "PROPN")) |>
+  select(doc_id, sentence_id, token, lemma, upos, dep_rel) |>
+  slice_sample(n = 20)
+```
+
+It is also useful to inspect cases where UDPipe changed the surface form of the token into a different lemma.
+
+```{r inspect_lemma_changes}
+parsed_tokens |>
+  filter(
+    str_detect(token, "[A-Za-z]"),
+    str_to_lower(token) != lemma
+  ) |>
+  distinct(token, lemma, upos) |>
+  slice_head(n = 30)
+```
+
+These checks do not prove that the annotations are correct. They help us decide whether the model-generated annotations are plausible enough for the downstream task.
+
+## Inspect POS Tags
+
+```{r count_main_pos_tags}
+sum(parsed_tokens$upos == "NOUN")
+sum(parsed_tokens$upos == "VERB")
+sum(parsed_tokens$upos == "ADJ")
+```
+
+```{r inspect_pos_tags}
+parsed_tokens |>
+  count(upos, sort = TRUE)
+```
+
+Proper nouns are tagged as `PROPN`. In parliamentary speeches, these often identify places, organisations, and named individuals.
+
+```{r inspect_proper_nouns}
+proper_nouns <- parsed_tokens |>
+  filter(upos == "PROPN")
+
+proper_nouns |>
+  count(lemma, sort = TRUE) |>
+  slice_head(n = 30)
+```
+
+## Clean Lemmas
+
+We create a small cleaning helper so that POS-specific analyses use comparable preprocessing. This removes punctuation-like lemmas, stopwords, and common parliamentary formulae.
+
+```{r clean_lemmas}
+parliamentary_stopwords <- c(
+  "hon", "member", "right", "friend", "sir", "gentleman",
+  "lady", "house", "commons", "speaker", "minister", "secretary",
+  "asked", "question", "mr", "mrs", "ms", "would", "could", "may"
+)
+
+parsed_tokens <- parsed_tokens |>
+  mutate(
+    clean_lemma = if_else(
+      !is.na(lemma) &
+        str_detect(lemma, "^[a-z][a-z_-]*$") &
+        !lemma %in% stopwords("en") &
+        !lemma %in% parliamentary_stopwords,
+      lemma,
+      NA_character_
+    )
+  )
+```
+
+## Noun Lemmas
+
+Nouns are useful when we want to focus on policy objects, institutions, groups, and issues.
+
+```{r create_noun_dfm}
+nouns <- parsed_tokens |>
+  filter(upos == "NOUN", !is.na(clean_lemma))
+
+nouns_dfm <- split(nouns$clean_lemma, nouns$doc_id) |>
+  as.tokens() |>
+  dfm()
+
+hoc_metadata <- udpipe_docs |>
+  select(doc_id, date, year, speaker, party, party_group, terms)
+
+docvars(nouns_dfm) <- hoc_metadata[
+  match(docnames(nouns_dfm), hoc_metadata$doc_id),
+  -1
+]
+
+dim(nouns_dfm)
+topfeatures(nouns_dfm, 30)
+```
+
+## Verb Lemmas
+
+Verbs are useful when we want to study actions, commitments, claims, and blame.
+
+```{r create_verb_dfm}
+verbs <- parsed_tokens |>
+  filter(upos == "VERB", !is.na(clean_lemma))
+
+verbs_dfm <- split(verbs$clean_lemma, verbs$doc_id) |>
+  as.tokens() |>
+  dfm()
+
+docvars(verbs_dfm) <- hoc_metadata[
+  match(docnames(verbs_dfm), hoc_metadata$doc_id),
+  -1
+]
+
+dim(verbs_dfm)
+topfeatures(verbs_dfm, 30)
+```
+
+We can compare verb usage between Conservative and Labour speeches using keyness. Positive values indicate verbs that are more characteristic of Conservative speeches in this sample; negative values indicate verbs that are more characteristic of Labour speeches.
+
+```{r verb_keyness_by_party}
+#| fig.width: 9
+#| fig.height: 6
+
+verbs_dfm_grouped <- verbs_dfm |>
+  dfm_group(groups = party_group) |>
+  dfm_subset(party_group %in% c("Conservative", "Labour"))
+
+verb_keyness <- textstat_keyness(
+  verbs_dfm_grouped,
+  target = "Conservative"
+)
+
+verb_keyness_plot <- bind_rows(
+  verb_keyness |>
+    slice_max(order_by = chi2, n = 12, with_ties = FALSE),
+  verb_keyness |>
+    slice_min(order_by = chi2, n = 12, with_ties = FALSE)
+) |>
+  mutate(
+    party_more = if_else(chi2 > 0, "Conservative", "Labour"),
+    feature_label = str_replace_all(feature, "_", " ")
+  )
+
+ggplot(
+  verb_keyness_plot,
+  aes(
+    x = reorder(feature_label, chi2),
+    y = chi2,
+    fill = party_more
+  )
+) +
+  geom_col(width = 0.75) +
+  geom_hline(yintercept = 0, color = "grey45") +
+  coord_flip(clip = "off") +
+  labs(
+    x = NULL,
+    y = "Keyness statistic",
+    fill = "More characteristic of"
+  ) +
+  scale_fill_manual(
+    values = c("Conservative" = "#003B73", "Labour" = "#B00020")
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.08, 0.12))) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.margin = margin(5.5, 30, 5.5, 5.5)
+  )
+
+head(verb_keyness, 20)
+```
+
+The noun and verb examples use the same basic recipe:
+
+```text
+choose a POS tag -> keep clean lemmas -> group by document -> create a DFM
+```
+
+You can reuse this recipe for adjectives, proper nouns, or any other POS tag when it is substantively useful.
+
+## Dependency Relations
+
+UDPipe also provides dependency relations. For example, `nsubj` tags nominal subjects and `obj` tags direct objects. These tags can help us ask more precise questions about who is acting and what is being acted upon.
+
+```{r inspect_dependency_relations}
+parsed_tokens |>
+  count(dep_rel, sort = TRUE) |>
+  slice_head(n = 20)
+```
+
+```{r inspect_subjects_and_objects}
+subjects_objects <- parsed_tokens |>
+  filter(
+    dep_rel %in% c("nsubj", "obj"),
+    !is.na(clean_lemma)
+  )
+
+subjects_objects |>
+  count(dep_rel, clean_lemma, sort = TRUE) |>
+  group_by(dep_rel) |>
+  slice_head(n = 15) |>
+  ungroup()
+```
+
+## Other Languages
+
+UDPipe supports many languages. Because we downloaded English, Dutch, and German models at the start of the lab, we can inspect short examples in all three languages.
+
+The point here is not to do a full multilingual analysis. The point is to see that tokenization, lemmatization, and grammatical annotation are language-specific. This connects to the lecture discussion of multilingual text: even if two sentences are conceptually similar, the input data produced by a processing pipeline may look different.
+
+```{r parse_multilingual_examples}
+dutch_model <- udpipe_load_model(dutch_model_path)
+german_model <- udpipe_load_model(german_model_path)
+
+english_documents <- c(
+  en1 = "The government discusses the budget today."
+)
+
+dutch_documents <- c(
+  nl1 = "De regering bespreekt vandaag de begroting."
+)
+
+german_documents <- c(
+  de1 = "Die Regierung bespricht heute den Haushalt."
+)
+
+parsed_tokens_english <- udpipe_annotate(
+  english_model,
+  x = english_documents,
+  doc_id = names(english_documents)
+) |>
+  as.data.frame() |>
+  as_tibble() |>
+  mutate(language = "English")
+
+parsed_tokens_dutch <- udpipe_annotate(
+  dutch_model,
+  x = dutch_documents,
+  doc_id = names(dutch_documents)
+) |>
+  as.data.frame() |>
+  as_tibble() |>
+  mutate(language = "Dutch")
+
+parsed_tokens_german <- udpipe_annotate(
+  german_model,
+  x = german_documents,
+  doc_id = names(german_documents)
+) |>
+  as.data.frame() |>
+  as_tibble() |>
+  mutate(language = "German")
+
+bind_rows(
+  parsed_tokens_english,
+  parsed_tokens_dutch,
+  parsed_tokens_german
+) |>
+  select(language, token, lemma, upos, dep_rel)
+```
+
+## NLP And LLM Workflows
+
+LLMs can label, summarise, classify, and extract information from political text, but classical NLP still matters. POS tags, lemmas, and dependency relations are transparent, reproducible features. They can help:
+
+- build better dictionary features;
+- audit LLM-coded data;
+- select examples for prompting;
+- compare model outputs to explicit linguistic patterns;
+- reduce prompt context by passing structured features instead of raw text.
+
+The key trade-off is interpretability. UDPipe annotations are imperfect, but they are inspectable. LLM outputs can be powerful, but they require validation.
+
+The same validation logic applies to both: inspect the intermediate output and then ask whether errors matter for the final quantity of interest.
+
+```{r create_llm_validation_template}
+set.seed(20260710)
+validation_n <- min(12, nrow(udpipe_docs))
+
+llm_validation_sample <- udpipe_docs |>
+  select(doc_id, date, speaker, party, party_group, agenda, text) |>
+  slice_sample(n = validation_n) |>
+  mutate(
+    llm_label = NA_character_,
+    human_label = NA_character_,
+    agreement = NA,
+    notes = NA_character_
+  )
+
+llm_validation_sample |>
+  mutate(text_preview = str_trunc(text, 160)) |>
+  select(doc_id, date, speaker, party_group, agenda, text_preview) |>
+  head(3)
+```
+
+If we later asked an LLM to label these speeches, this small data frame could become the start of a validation workflow. We would fill in the model label, compare it with human judgment, inspect disagreements, and ask whether errors are patterned by party, period, speaker, or issue.
+
+## Practice Exercises
+
+For these exercises, work with the `parsed_tokens` data frame and the HoC metadata created above.
+
+1. Create a data frame called `adjs` that contains all clean adjective lemmas in the HoC sample.
+
+```{r exercise_create_adjs_dataframe}
+adjs <- parsed_tokens |>
+  filter(
+    upos == "ADJ",
+    !is.na(clean_lemma)
+  )
+
+head(adjs)
+```
+
+2. Display the most common adjective lemmas using `count()`.
+
+```{r exercise_count_adjs}
+adjs |>
+  count(clean_lemma, sort = TRUE) |>
+  slice_head(n = 30)
+```
+
+3. Group the adjectives by speech and turn them into a DFM called `adjs_dfm`.
+
+```{r exercise_create_adjs_dfm}
+adjs_dfm <- split(adjs$clean_lemma, adjs$doc_id) |>
+  as.tokens() |>
+  dfm()
+
+dim(adjs_dfm)
+topfeatures(adjs_dfm, 30)
+```
+
+4. Append `date`, `year`, `speaker`, `party`, `party_group`, and `terms` from `hoc_metadata` as docvars to `adjs_dfm`.
+
+```{r exercise_append_docvars_to_adjs_dfm}
+docvars(adjs_dfm) <- hoc_metadata[
+  match(docnames(adjs_dfm), hoc_metadata$doc_id),
+  -1
+]
+
+head(docvars(adjs_dfm))
+```
+
+5. Use `topfeatures()` to inspect the most common adjective lemmas. Do they look like useful evaluative features?
+
+```{r exercise_inspect_adjective_features}
+topfeatures(adjs_dfm, 30)
+```
+
+The most common adjective lemmas may include evaluative terms, but they may also include administrative or descriptive words. This is why POS selection is not a substitute for conceptual validation.
+
+6. Use dependency relations to count the most common direct-object lemmas, where `dep_rel == "obj"`.
+
+```{r exercise_common_objects}
+parsed_tokens |>
+  filter(
+    dep_rel == "obj",
+    !is.na(clean_lemma)
+  ) |>
+  count(clean_lemma, sort = TRUE) |>
+  slice_head(n = 30)
+```
+
+7. Write a short reflection: where might POS tags, lemmas, or dependency relations help you validate an LLM-coded analysis of parliamentary speeches?
+
+```{r exercise_nlp_llm_reflection}
+# POS tags and lemmas could help validate whether an LLM-coded variable is
+# responding to the intended language. For example, if an LLM classifies speeches
+# as about government action, I could inspect the most common verbs and subjects
+# in speeches it labels as positive cases.
+#
+# Dependency relations could also help audit extraction tasks. If an LLM says a
+# speech blames a particular actor, I could inspect subject, object, and verb
+# relations around relevant sentences to see whether the grammatical structure
+# supports that interpretation.
+#
+# These features would not replace reading or validation, but they would provide
+# transparent checks on whether the LLM labels align with observable linguistic
+# patterns in the speeches.
+```
+
+8. Create a validation sample of 10 speeches from `udpipe_docs`. Keep the columns `doc_id`, `date`, `speaker`, `party_group`, `agenda`, and `text`, and add empty columns called `llm_label`, `human_label`, and `notes`.
+
+```{r exercise_create_llm_validation_sample}
+set.seed(20260710)
+exercise_validation_n <- min(10, nrow(udpipe_docs))
+
+llm_validation_exercise <- udpipe_docs |>
+  select(doc_id, date, speaker, party_group, agenda, text) |>
+  slice_sample(n = exercise_validation_n) |>
+  mutate(
+    llm_label = NA_character_,
+    human_label = NA_character_,
+    notes = NA_character_
+  )
+
+llm_validation_exercise |>
+  select(doc_id, date, speaker, party_group, agenda, llm_label, human_label)
+```
+
+9. Briefly note one way in which resource, retrieval, medium, or incentive bias could affect an LLM annotation project using parliamentary speeches.
+
+```{r exercise_bias_reflection}
+# Resource bias: parliamentary speeches are produced by elected politicians,
+# so they do not represent all political actors or all citizens affected by
+# policy.
+#
+# Retrieval bias: if I retrieve speeches using a narrow keyword list, I may miss
+# relevant speeches that discuss the same concept using different language.
+#
+# Medium bias: House of Commons speech follows institutional rules and
+# conventions, so the language differs from rallies, interviews, social media,
+# or private communication.
+#
+# Incentive bias: MPs may strategically frame issues for party-political,
+# constituency, or media-facing reasons. An LLM can code the text consistently,
+# but it cannot remove the strategic setting in which the text was produced.
+```
