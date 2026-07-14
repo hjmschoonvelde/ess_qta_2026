@@ -1,0 +1,725 @@
+---
+title: "QTA Lab 07 Answers: Topic Models with House of Commons Speeches"
+format:
+  gfm: default
+editor: source
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  results = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+## Learning goals
+
+In this lab, you will learn how to:
+
+- estimate an unsupervised LDA topic model;
+- inspect topic terms and document-topic proportions;
+- visualise topic prevalence across individual speeches and parties;
+- estimate a Structural Topic Model (STM) with document metadata;
+- estimate a seeded LDA model with researcher-defined topic seeds;
+- think critically about topic interpretation, including how LLMs can help label topics.
+
+The running corpus is the same House of Commons leader speech sample used in Lab 6, but the unit of analysis is different. In Lab 6, we aggregated speeches into leader-period documents for scaling. In this lab, each document is one individual speech. This lets us ask: what topics appear in leader speeches, and how do those topics vary by party, leader, and election period?
+
+## Load packages
+
+```{r load_packages}
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(ggplot2)
+library(quanteda)
+library(quanteda.textstats)
+library(seededlda)
+library(stm)
+
+party_colors <- c(
+  "Conservative" = "#003B73",
+  "Labour" = "#B00020"
+)
+```
+
+## Read and prepare the data
+
+```{r read_hoc_sample}
+data_path <- "Data/hc_leader_period_sample_1979_2024.rds"
+
+hoc <- readRDS(data_path)
+
+hoc <- hoc |>
+  mutate(
+    year = as.integer(format(date, "%Y")),
+    party_family = party
+  )
+```
+
+Topic models need enough words in each document. We keep the unit of analysis at the level of individual speeches, but remove very short speeches that do not contain enough language for meaningful topic modelling.
+
+```{r create_topic_documents}
+speech_counts <- hoc |>
+  count(
+    election_no,
+    election_period,
+    party_family,
+    leader,
+    name = "available_speeches"
+  )
+
+speech_counts
+
+topic_docs <- hoc |>
+  filter(!is.na(text), text != "", terms >= 80) |>
+  arrange(date, party_family, leader, speechnumber) |>
+  mutate(
+    period = election_period,
+    period_years = str_extract(period, "\\d{4}-\\d{4}"),
+    topic_doc = paste0("speech_", row_number())
+  )
+
+topic_docs |>
+  count(party_family, sort = TRUE)
+
+topic_docs |>
+  count(leader, party_family, sort = TRUE)
+```
+
+## Create a corpus, tokens, and DFM
+
+```{r create_topic_corpus}
+topic_corpus <- corpus(
+  topic_docs,
+  text_field = "text",
+  docid_field = "topic_doc"
+)
+
+summary(topic_corpus, n = 10)
+```
+
+We remove common procedural language and a few encoding artefacts. These terms otherwise tend to become topics about parliamentary style rather than substantive content.
+
+```{r tokenize_topic_corpus}
+parliamentary_stopwords <- c(
+  "hon", "member", "right", "friend", "sir", "gentleman",
+  "lady", "house", "commons", "speaker", "minister", "secretary",
+  "asked", "question", "mr", "mrs", "ms", "â", "ã"
+)
+
+topic_tokens <- tokens(
+  topic_corpus,
+  what = "word",
+  remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = TRUE,
+  remove_url = TRUE,
+  remove_separators = TRUE,
+  split_hyphens = FALSE
+) |>
+  tokens_tolower() |>
+  tokens_remove(stopwords("en")) |>
+  tokens_remove(parliamentary_stopwords)
+```
+
+As before, we identify frequent collocations and compound the top examples.
+
+```{r detect_topic_collocations}
+topic_collocations <- topic_tokens |>
+  textstat_collocations(
+    min_count = 8,
+    size = 2:3
+  ) |>
+  arrange(desc(lambda))
+
+head(topic_collocations, 20)
+```
+
+```{r compound_topic_collocations}
+if (nrow(topic_collocations) > 0) {
+  topic_tokens <- tokens_compound(
+    topic_tokens,
+    phrase(head(topic_collocations$collocation, 30))
+  )
+}
+```
+
+We trim rare terms and terms that appear in more than three quarters of all documents. This makes the model faster and removes words that are too common to distinguish topics.
+
+```{r create_topic_dfm}
+topic_dfm <- dfm(topic_tokens) |>
+  dfm_trim(
+    min_termfreq = 5,
+    min_docfreq = 2
+  ) |>
+  dfm_trim(
+    max_docfreq = 0.75,
+    docfreq_type = "prop"
+  )
+
+topic_dfm <- topic_dfm[ntoken(topic_dfm) > 0, ]
+
+dim(topic_dfm)
+topfeatures(topic_dfm, 30)
+```
+
+## Estimate an LDA topic model
+
+Latent Dirichlet Allocation (LDA) is an unsupervised topic model. The researcher chooses the number of topics, `k`. Here we estimate six topics. This is not the "true" number of topics; it is a modelling choice we inspect and can vary.
+
+```{r estimate_lda_6}
+set.seed(20260710)
+
+lda_6 <- textmodel_lda(
+  topic_dfm,
+  k = 6,
+  alpha = 0.5,
+  max_iter = 500
+)
+```
+
+The `terms()` function shows the highest-probability terms for each topic.
+
+```{r inspect_lda_6_terms}
+terms(lda_6, 10)
+```
+
+The `topics()` function returns the highest-probability topic for each document.
+
+```{r inspect_lda_6_topics}
+head(topics(lda_6), 10)
+
+docvars(topic_dfm, "top_topic") <- topics(lda_6)
+
+table(docvars(topic_dfm, "top_topic"))
+```
+
+Document-topic proportions are stored in `theta`. Each row is one document and each column is one topic.
+
+```{r inspect_lda_6_theta}
+head(lda_6$theta, 10)
+head(rowSums(lda_6$theta), 10)
+```
+
+## Visualise topic prevalence
+
+We first convert `theta` into a tidy data frame and add document metadata.
+
+```{r tidy_lda_theta}
+lda_theta <- as.data.frame(lda_6$theta)
+colnames(lda_theta) <- paste0("topic_", seq_len(ncol(lda_theta)))
+
+lda_theta <- lda_theta |>
+  mutate(
+    doc_id = docnames(topic_dfm),
+    party_family = docvars(topic_dfm, "party_family"),
+    leader = docvars(topic_dfm, "leader"),
+    period = docvars(topic_dfm, "period"),
+    election_no = docvars(topic_dfm, "election_no"),
+    date = docvars(topic_dfm, "date"),
+    agenda = docvars(topic_dfm, "agenda"),
+    speaker = docvars(topic_dfm, "speaker"),
+    terms = docvars(topic_dfm, "terms")
+  )
+
+lda_theta_long <- lda_theta |>
+  pivot_longer(
+    cols = starts_with("topic_"),
+    names_to = "topic",
+    values_to = "proportion"
+  )
+
+head(lda_theta_long)
+```
+
+The density plot shows how concentrated or diffuse each topic is across individual speeches.
+
+```{r plot_lda_topic_distributions}
+ggplot(
+  lda_theta_long,
+  aes(x = proportion, fill = topic)
+) +
+  geom_density(alpha = 0.4) +
+  facet_wrap(~ topic, ncol = 4) +
+  labs(
+    x = "Document-topic proportion",
+    y = "Density"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+We can also look at the documents with the highest proportion of a selected topic. Change `selected_topic` after inspecting the terms.
+
+```{r inspect_high_topic_documents}
+selected_topic <- "topic_1"
+
+top_topic_documents <- lda_theta |>
+  arrange(desc(.data[[selected_topic]])) |>
+  select(
+    leader,
+    party_family,
+    date,
+    agenda,
+    period,
+    terms,
+    all_of(selected_topic)
+  ) |>
+  slice_head(n = 15)
+
+top_topic_documents
+```
+
+```{r plot_high_topic_documents}
+ggplot(
+  top_topic_documents,
+  aes(
+    x = reorder(paste(leader, date), .data[[selected_topic]]),
+    y = .data[[selected_topic]],
+    fill = party_family
+  )
+) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = paste("Topic proportion:", selected_topic),
+    fill = "Party family"
+  ) +
+  scale_fill_manual(values = party_colors) +
+  theme_minimal()
+```
+
+Average topic proportions by party give us a first descriptive comparison.
+
+```{r plot_lda_topics_by_party}
+party_topic_means <- lda_theta_long |>
+  group_by(party_family, topic) |>
+  summarise(
+    mean_proportion = mean(proportion),
+    .groups = "drop"
+  )
+
+ggplot(
+  party_topic_means,
+  aes(
+    x = topic,
+    y = mean_proportion,
+    fill = party_family
+  )
+) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "Mean topic proportion",
+    fill = "Party family"
+  ) +
+  scale_fill_manual(values = party_colors) +
+  theme_minimal()
+```
+
+## Estimate a Structural Topic Model
+
+Structural Topic Models (STMs) extend topic models by allowing topic prevalence or topic content to depend on metadata. Here we estimate six topics and model topic prevalence as a function of party family and election period.
+
+```{r estimate_stm_6}
+stm_6 <- stm(
+  topic_dfm,
+  data = docvars(topic_dfm),
+  seed = 20260710,
+  K = 6,
+  prevalence = ~ party_family + election_no,
+  max.em.its = 25,
+  verbose = FALSE,
+  init.type = "Spectral"
+)
+```
+
+`labelTopics()` reports several ways of describing topics. FREX terms are often useful because they balance frequency and exclusivity.
+
+```{r label_stm_6_topics}
+labelTopics(stm_6, n = 8)
+```
+
+The default `plot(stm_6)` output is useful for quick inspection, but it can be visually crowded in a rendered lab document. The next block turns the STM topic proportions into a tidy data frame so that we can make clearer plots ourselves.
+
+```{r tidy_stm_theta}
+stm_theta <- as.data.frame(stm_6$theta)
+colnames(stm_theta) <- paste0("topic_", seq_len(ncol(stm_theta)))
+
+stm_theta <- stm_theta |>
+  mutate(
+    doc_id = docnames(topic_dfm),
+    party_family = docvars(topic_dfm, "party_family"),
+    leader = docvars(topic_dfm, "leader"),
+    election_no = docvars(topic_dfm, "election_no")
+  )
+
+stm_theta_long <- stm_theta |>
+  pivot_longer(
+    cols = starts_with("topic_"),
+    names_to = "topic",
+    values_to = "proportion"
+  )
+```
+
+This plot shows how each STM topic is distributed across individual speeches. Topics with many speeches near zero are more concentrated; topics with many moderate values are more diffuse.
+
+```{r plot_stm_topic_distributions, fig.width=8, fig.height=5}
+ggplot(
+  stm_theta_long,
+  aes(x = proportion, fill = topic)
+) +
+  geom_density(alpha = 0.6, linewidth = 0.2, show.legend = FALSE) +
+  facet_wrap(~ topic, ncol = 3) +
+  labs(
+    x = "Estimated STM topic proportion",
+    y = "Density"
+  ) +
+  theme_minimal()
+```
+
+The `findThoughts()` function returns documents that are strongly associated with a topic. This is essential for interpretation: never label a topic from top words alone.
+
+```{r find_stm_thoughts}
+findThoughts(
+  stm_6,
+  texts = as.character(topic_corpus)[docnames(topic_dfm)],
+  n = 2,
+  topics = c(1)
+)
+```
+
+## Estimate topic prevalence effects
+
+`estimateEffect()` fits regressions where the outcome is estimated topic prevalence. Here, we compare topic prevalence by party family.
+
+```{r estimate_stm_party_effects}
+stm_party_effects <- estimateEffect(
+  1:6 ~ party_family,
+  stmobj = stm_6,
+  meta = docvars(topic_dfm)
+)
+
+summary(stm_party_effects, topics = 1)
+```
+
+The plot below compares Labour and Conservative speeches for each STM topic.
+
+```{r plot_stm_party_effects, fig.width=8, fig.height=4.8}
+stm_party_means <- stm_theta_long |>
+  group_by(party_family, topic) |>
+  summarise(mean_proportion = mean(proportion), .groups = "drop")
+
+ggplot(
+  stm_party_means,
+  aes(
+    x = topic,
+    y = mean_proportion,
+    fill = party_family
+  )
+) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "Mean estimated STM topic proportion",
+    fill = "Party family"
+  ) +
+  scale_fill_manual(values = party_colors) +
+  theme_minimal()
+```
+
+The next plot shows the same comparison as a Labour-minus-Conservative difference. Positive values indicate topics that are more prevalent in Labour leader speeches; negative values indicate topics that are more prevalent in Conservative leader speeches.
+
+```{r plot_stm_party_differences, fig.width=8, fig.height=4.5}
+stm_party_differences <- stm_party_means |>
+  pivot_wider(
+    names_from = party_family,
+    values_from = mean_proportion
+  ) |>
+  mutate(difference = Labour - Conservative)
+
+ggplot(
+  stm_party_differences,
+  aes(
+    x = reorder(topic, difference),
+    y = difference,
+    fill = difference > 0
+  )
+) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  scale_fill_manual(values = c("TRUE" = "#B00020", "FALSE" = "#003B73")) +
+  labs(
+    x = NULL,
+    y = "Difference in mean STM topic proportion: Labour - Conservative"
+  ) +
+  theme_minimal()
+```
+
+## Seeded LDA
+
+Seeded LDA is semi-supervised. We provide seed words for topics we expect to exist, and the model uses those seeds to guide topic discovery.
+
+This is where LLMs may be helpful: they can suggest possible seed words. But those suggestions should be checked against theory, corpus context, and known terminology.
+
+```{r create_seeded_lda_dictionary}
+hoc_topic_dictionary <- dictionary(
+  list(
+    economy = c(
+      "econom*", "tax*", "budget*", "inflation", "growth",
+      "business*", "jobs"
+    ),
+    health = c(
+      "health*", "nhs", "hospital*", "patient*", "care"
+    ),
+    security = c(
+      "security", "defence", "police", "crime", "terror*", "border*"
+    ),
+    environment = c(
+      "climate", "environment*", "carbon", "energy", "green", "emission*"
+    )
+  )
+)
+
+hoc_topic_dictionary
+```
+
+```{r estimate_seeded_lda}
+seeded_topics <- textmodel_seededlda(
+  topic_dfm,
+  hoc_topic_dictionary,
+  batch_size = 0.25,
+  auto_iter = TRUE,
+  verbose = FALSE
+)
+
+terms(seeded_topics, 10)
+head(seeded_topics$theta, 10)
+```
+
+Seeded LDA can also include residual topics. These capture language that does not fit well into the seeded topics.
+
+```{r estimate_seeded_lda_residual}
+seeded_topics_residual <- textmodel_seededlda(
+  topic_dfm,
+  hoc_topic_dictionary,
+  residual = 2,
+  batch_size = 0.25,
+  auto_iter = TRUE,
+  verbose = FALSE
+)
+
+terms(seeded_topics_residual, 10)
+```
+
+```{r plot_seeded_topics_by_party}
+seeded_theta <- as.data.frame(seeded_topics$theta)
+
+seeded_theta <- seeded_theta |>
+  mutate(
+    doc_id = docnames(topic_dfm),
+    party_family = docvars(topic_dfm, "party_family")
+  ) |>
+  pivot_longer(
+    cols = -c(doc_id, party_family),
+    names_to = "seeded_topic",
+    values_to = "proportion"
+  )
+
+seeded_party_means <- seeded_theta |>
+  group_by(party_family, seeded_topic) |>
+  summarise(
+    mean_proportion = mean(proportion),
+    .groups = "drop"
+  )
+
+ggplot(
+  seeded_party_means,
+  aes(
+    x = seeded_topic,
+    y = mean_proportion,
+    fill = party_family
+  )
+) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "Mean seeded topic proportion",
+    fill = "Party family"
+  ) +
+  scale_fill_manual(values = party_colors) +
+  theme_minimal()
+```
+
+## Topic labelling and LLMs
+
+Topic labels are interpretations, not model outputs. A careful workflow combines:
+
+- top probability terms;
+- FREX or lift terms;
+- high-probability documents;
+- metadata patterns;
+- sensitivity checks across different values of `k`, preprocessing choices, and seeds.
+
+LLMs can help by proposing possible labels from top terms and example documents. They can also help compare alternative labels or flag overly broad labels. They should not replace human validation, because topic models often mix policy areas, procedural language, time periods, and party style.
+
+## Practice exercises
+
+1. Estimate an LDA model with five topics on `topic_dfm` and `alpha = 0.5`. Call the model `lda_5`.
+
+```{r exercise_lda_5}
+set.seed(20260710)
+
+lda_5 <- textmodel_lda(
+  topic_dfm,
+  k = 5,
+  alpha = 0.5,
+  max_iter = 500
+)
+```
+
+2. Display the 10 highest-probability terms for each topic in `lda_5`.
+
+```{r exercise_lda_5_terms}
+terms(lda_5, 10)
+```
+
+3. Show the topic distributions of `lda_5` in the first 20 documents.
+
+```{r exercise_lda_5_theta}
+head(lda_5$theta, 20)
+head(rowSums(lda_5$theta), 20)
+```
+
+4. Estimate another LDA model with five topics, but set `alpha = 5`. Call it `lda_5_alpha_5`.
+
+```{r exercise_lda_5_alpha_5}
+set.seed(20260710)
+
+lda_5_alpha_5 <- textmodel_lda(
+  topic_dfm,
+  k = 5,
+  alpha = 5,
+  max_iter = 500
+)
+```
+
+5. Compare the first 20 topic distributions from `lda_5` and `lda_5_alpha_5`. What effect does a larger alpha appear to have?
+
+```{r exercise_compare_alpha}
+head(lda_5$theta, 20)
+head(lda_5_alpha_5$theta, 20)
+
+alpha_comparison <- data.frame(
+  document = docnames(topic_dfm),
+  max_topic_alpha_0_5 = apply(lda_5$theta, 1, max),
+  max_topic_alpha_5 = apply(lda_5_alpha_5$theta, 1, max)
+)
+
+summary(alpha_comparison$max_topic_alpha_0_5)
+summary(alpha_comparison$max_topic_alpha_5)
+
+# A larger alpha usually encourages more mixed topic distributions. In this
+# example, compare the maximum topic proportion per document: lower maxima mean
+# that documents are spread more evenly across topics.
+```
+
+6. Estimate an STM with five topics and `prevalence = ~ party_family + election_no`. Call it `stm_5_party_period`.
+
+```{r exercise_stm_party_period}
+stm_5_party_period <- stm(
+  topic_dfm,
+  data = docvars(topic_dfm),
+  seed = 20260710,
+  K = 5,
+  prevalence = ~ party_family + election_no,
+  max.em.its = 25,
+  verbose = FALSE,
+  init.type = "Spectral"
+)
+
+labelTopics(stm_5_party_period, n = 8)
+```
+
+7. Use `estimateEffect()` to estimate the relationship between `party_family`, `election_no`, and topics in `stm_5_party_period`.
+
+```{r exercise_stm_effects_party_period}
+stm_party_period_effects <- estimateEffect(
+  1:5 ~ party_family + election_no,
+  stmobj = stm_5_party_period,
+  meta = docvars(topic_dfm)
+)
+
+summary(stm_party_period_effects, topics = 1)
+
+plot(
+  stm_party_period_effects,
+  covariate = "election_no",
+  method = "continuous",
+  topics = 1,
+  xlab = "Election number",
+  ylab = "Expected topic proportion"
+)
+
+plot(
+  stm_party_period_effects,
+  covariate = "party_family",
+  cov.value1 = "Labour",
+  cov.value2 = "Conservative",
+  method = "difference",
+  xlab = "Estimated difference in topic proportion: Labour - Conservative"
+)
+```
+
+8. Create a new seeded LDA dictionary with at least three topics of your choice. Estimate a seeded LDA model called `seeded_topics_custom`.
+
+```{r exercise_custom_seeded_lda}
+custom_topic_dictionary <- dictionary(
+  list(
+    housing = c("housing", "homes", "rent*", "tenant*", "landlord*"),
+    education = c("school*", "teacher*", "student*", "universit*", "education"),
+    transport = c("rail", "bus*", "transport", "road*", "airport*")
+  )
+)
+
+seeded_topics_custom <- textmodel_seededlda(
+  topic_dfm,
+  custom_topic_dictionary,
+  residual = 2,
+  batch_size = 0.25,
+  auto_iter = TRUE,
+  verbose = FALSE
+)
+
+terms(seeded_topics_custom, 10)
+head(seeded_topics_custom$theta, 10)
+```
+
+9. Write a short reflection: how would you use an LLM to help label the topics in this lab, and how would you check that the labels are not misleading?
+
+```{r exercise_topic_label_reflection}
+# I would give an LLM the top probability terms, FREX terms, and a few high-topic
+# documents, then ask it for several possible labels rather than one definitive
+# answer. I would also ask it to explain which terms or excerpts support each
+# possible label.
+#
+# I would check the labels manually by reading high-probability documents,
+# comparing labels across different values of k, and checking whether the topic
+# is really about a policy area rather than a party, time period, procedural
+# phrase, or speech style. The final label should be treated as a research
+# interpretation, not as an output mechanically produced by the model or the LLM.
+```
