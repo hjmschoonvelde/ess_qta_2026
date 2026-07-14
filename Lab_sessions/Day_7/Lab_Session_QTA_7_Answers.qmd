@@ -210,6 +210,71 @@ head(lda_6$theta, 10)
 head(rowSums(lda_6$theta), 10)
 ```
 
+## Compare models using perplexity
+
+Perplexity is a model-fit diagnostic. It asks how surprising the observed words are under the fitted topic model. Lower perplexity means that the model assigns higher probability to the words we observe in the speeches.
+
+The intuition is simple: if a model has learned a health topic, it should not be very surprised by words such as `nhs`, `patients`, and `care` in a health-related speech. If it is surprised by many words across many speeches, perplexity will be higher.
+
+The function below calculates in-sample perplexity from the fitted LDA model. In a research project, we would ideally evaluate held-out text as well. Here we use in-sample perplexity because it makes the mechanics transparent and keeps the lab manageable.
+
+```{r calculate_lda_perplexity}
+calculate_lda_perplexity <- function(model, data) {
+  feature_names <- colnames(model$phi)
+  counts <- as.matrix(data[, feature_names])
+  predicted_probabilities <- model$theta %*% model$phi
+  predicted_probabilities <- pmax(predicted_probabilities, 1e-12)
+
+  log_likelihood <- sum(counts * log(predicted_probabilities))
+  total_tokens <- sum(counts)
+
+  exp(-log_likelihood / total_tokens)
+}
+```
+
+Now we compare models with different numbers of topics. This takes a little longer because we estimate several LDA models.
+
+```{r compare_lda_perplexity}
+set.seed(20260714)
+
+k_candidates <- c(3, 6, 9)
+
+perplexity_results <- bind_rows(
+  lapply(k_candidates, function(k_value) {
+    model <- textmodel_lda(
+      topic_dfm,
+      k = k_value,
+      alpha = 0.5,
+      max_iter = 200
+    )
+
+    tibble(
+      k = k_value,
+      perplexity = calculate_lda_perplexity(model, topic_dfm)
+    )
+  })
+)
+
+perplexity_results
+```
+
+```{r plot_lda_perplexity, fig.width=7, fig.height=4}
+ggplot(
+  perplexity_results,
+  aes(x = k, y = perplexity)
+) +
+  geom_line(color = "#4B4B4B") +
+  geom_point(size = 2.5, color = "#B00020") +
+  scale_x_continuous(breaks = k_candidates) +
+  labs(
+    x = "Number of topics (k)",
+    y = "In-sample perplexity"
+  ) +
+  theme_minimal()
+```
+
+In this example, perplexity falls as we add more topics. That is common: more complex models can often fit the observed words better. But lower perplexity does not automatically mean better social science. We still need to inspect terms, read high-topic speeches, and ask whether the topics are interpretable and useful.
+
 ## Visualise topic prevalence
 
 We first convert `theta` into a tidy data frame and add document metadata.

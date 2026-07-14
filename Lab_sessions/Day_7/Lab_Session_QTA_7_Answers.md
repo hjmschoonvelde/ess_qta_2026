@@ -435,6 +435,94 @@ head(rowSums(lda_6$theta), 10)
      speech_9 speech_10 
             1         1 
 
+## Compare models using perplexity
+
+Perplexity is a model-fit diagnostic. It asks how surprising the
+observed words are under the fitted topic model. Lower perplexity means
+that the model assigns higher probability to the words we observe in the
+speeches.
+
+The intuition is simple: if a model has learned a health topic, it
+should not be very surprised by words such as `nhs`, `patients`, and
+`care` in a health-related speech. If it is surprised by many words
+across many speeches, perplexity will be higher.
+
+The function below calculates in-sample perplexity from the fitted LDA
+model. In a research project, we would ideally evaluate held-out text as
+well. Here we use in-sample perplexity because it makes the mechanics
+transparent and keeps the lab manageable.
+
+``` r
+calculate_lda_perplexity <- function(model, data) {
+  feature_names <- colnames(model$phi)
+  counts <- as.matrix(data[, feature_names])
+  predicted_probabilities <- model$theta %*% model$phi
+  predicted_probabilities <- pmax(predicted_probabilities, 1e-12)
+
+  log_likelihood <- sum(counts * log(predicted_probabilities))
+  total_tokens <- sum(counts)
+
+  exp(-log_likelihood / total_tokens)
+}
+```
+
+Now we compare models with different numbers of topics. This takes a
+little longer because we estimate several LDA models.
+
+``` r
+set.seed(20260714)
+
+k_candidates <- c(3, 6, 9)
+
+perplexity_results <- bind_rows(
+  lapply(k_candidates, function(k_value) {
+    model <- textmodel_lda(
+      topic_dfm,
+      k = k_value,
+      alpha = 0.5,
+      max_iter = 200
+    )
+
+    tibble(
+      k = k_value,
+      perplexity = calculate_lda_perplexity(model, topic_dfm)
+    )
+  })
+)
+
+perplexity_results
+```
+
+    # A tibble: 3 × 2
+          k perplexity
+      <dbl>      <dbl>
+    1     3      1803.
+    2     6      1625.
+    3     9      1528.
+
+``` r
+ggplot(
+  perplexity_results,
+  aes(x = k, y = perplexity)
+) +
+  geom_line(color = "#4B4B4B") +
+  geom_point(size = 2.5, color = "#B00020") +
+  scale_x_continuous(breaks = k_candidates) +
+  labs(
+    x = "Number of topics (k)",
+    y = "In-sample perplexity"
+  ) +
+  theme_minimal()
+```
+
+![](Lab_Session_QTA_7_Answers_files/figure-commonmark/plot_lda_perplexity-1.png)
+
+In this example, perplexity falls as we add more topics. That is common:
+more complex models can often fit the observed words better. But lower
+perplexity does not automatically mean better social science. We still
+need to inspect terms, read high-topic speeches, and ask whether the
+topics are interpretable and useful.
+
 ## Visualise topic prevalence
 
 We first convert `theta` into a tidy data frame and add document
@@ -894,30 +982,30 @@ terms(seeded_topics, 10)
           economy      health       security   environment 
      [1,] "tax"        "prime"      "security" "european"  
      [2,] "government" "health"     "prime"    "government"
-     [3,] "budget"     "people"     "police"   "can"       
-     [4,] "people"     "government" "can"      "union"     
-     [5,] "prime"      "said"       "defence"  "made"      
-     [6,] "economic"   "care"       "support"  "deal"      
-     [7,] "economy"    "nhs"        "also"     "europe"    
-     [8,] "jobs"       "one"        "us"       "said"      
-     [9,] "chancellor" "can"        "people"   "make"      
-    [10,] "year"       "know"       "crime"    "agreement" 
+     [3,] "people"     "people"     "can"      "can"       
+     [4,] "prime"      "government" "police"   "union"     
+     [5,] "budget"     "said"       "support"  "made"      
+     [6,] "economic"   "care"       "defence"  "said"      
+     [7,] "economy"    "nhs"        "people"   "deal"      
+     [8,] "jobs"       "one"        "us"       "europe"    
+     [9,] "chancellor" "service"    "crime"    "community" 
+    [10,] "year"       "know"       "also"     "prime"     
 
 ``` r
 head(seeded_topics$theta, 10)
 ```
 
                   economy     health    security environment
-    speech_1  0.037777778 0.62444444 0.011111111   0.3266667
-    speech_2  0.007692308 0.83538462 0.044615385   0.1123077
-    speech_3  0.213080169 0.36075949 0.027426160   0.3987342
-    speech_4  0.048945783 0.33810241 0.077560241   0.5353916
-    speech_5  0.353658537 0.01219512 0.085365854   0.5487805
-    speech_6  0.542431193 0.01261468 0.003440367   0.4415138
-    speech_7  0.485294118 0.13235294 0.161764706   0.2205882
-    speech_8  0.045454545 0.22727273 0.009090909   0.7181818
-    speech_9  0.096330275 0.25229358 0.022935780   0.6284404
-    speech_10 0.039473684 0.09210526 0.013157895   0.8552632
+    speech_1  0.011111111 0.72666667 0.033333333   0.2288889
+    speech_2  0.007692308 0.73692308 0.010769231   0.2446154
+    speech_3  0.196202532 0.38185654 0.010548523   0.4113924
+    speech_4  0.044427711 0.37725904 0.050451807   0.5278614
+    speech_5  0.353658537 0.08536585 0.036585366   0.5243902
+    speech_6  0.498853211 0.07912844 0.014908257   0.4071101
+    speech_7  0.544117647 0.10294118 0.073529412   0.2794118
+    speech_8  0.009090909 0.17272727 0.009090909   0.8090909
+    speech_9  0.142201835 0.09633028 0.013761468   0.7477064
+    speech_10 0.065789474 0.17105263 0.013157895   0.7500000
 
 Seeded LDA can also include residual topics. These capture language that
 does not fit well into the seeded topics.
@@ -935,28 +1023,28 @@ seeded_topics_residual <- textmodel_seededlda(
 terms(seeded_topics_residual, 10)
 ```
 
-          economy      health       security        environment  other1      
-     [1,] "tax"        "health"     "security"      "government" "prime"     
-     [2,] "budget"     "people"     "defence"       "made"       "said"      
-     [3,] "government" "care"       "prime"         "matter"     "us"        
-     [4,] "economic"   "nhs"        "police"        "may"        "one"       
-     [5,] "economy"    "government" "united"        "report"     "members"   
-     [6,] "jobs"       "can"        "support"       "can"        "know"      
-     [7,] "prime"      "prime"      "can"           "make"       "government"
-     [8,] "chancellor" "need"       "countries"     "shall"      "country"   
-     [9,] "people"     "service"    "international" "hope"       "today"     
-    [10,] "business"   "work"       "must"          "state"      "people"    
-          other2    
-     [1,] "european"
-     [2,] "prime"   
-     [3,] "union"   
-     [4,] "deal"    
-     [5,] "can"     
-     [6,] "europe"  
-     [7,] "said"    
-     [8,] "eu"      
-     [9,] "people"  
-    [10,] "country" 
+          economy      health    security        environment other1      
+     [1,] "tax"        "health"  "security"      "european"  "members"   
+     [2,] "budget"     "people"  "defence"       "union"     "government"
+     [3,] "government" "care"    "police"        "can"       "one"       
+     [4,] "economic"   "nhs"     "prime"         "deal"      "may"       
+     [5,] "economy"    "country" "united"        "europe"    "time"      
+     [6,] "jobs"       "can"     "must"          "agreement" "shall"     
+     [7,] "chancellor" "work"    "can"           "eu"        "matter"    
+     [8,] "people"     "need"    "international" "country"   "many"      
+     [9,] "business"   "service" "countries"     "people"    "made"      
+    [10,] "year"       "many"    "support"       "ireland"   "debate"    
+          other2      
+     [1,] "prime"     
+     [2,] "said"      
+     [3,] "government"
+     [4,] "now"       
+     [5,] "us"        
+     [6,] "last"      
+     [7,] "can"       
+     [8,] "know"      
+     [9,] "says"      
+    [10,] "answer"    
 
 ``` r
 seeded_theta <- as.data.frame(seeded_topics$theta)
@@ -1311,33 +1399,33 @@ seeded_topics_custom <- textmodel_seededlda(
 terms(seeded_topics_custom, 10)
 ```
 
-          housing      education    transport    other1       other2    
-     [1,] "people"     "prime"      "prime"      "european"   "prime"   
-     [2,] "health"     "government" "government" "union"      "security"
-     [3,] "can"        "said"       "people"     "countries"  "can"     
-     [4,] "country"    "members"    "tax"        "europe"     "support" 
-     [5,] "need"       "one"        "chancellor" "deal"       "people"  
-     [6,] "government" "may"        "year"       "council"    "us"      
-     [7,] "service"    "say"        "now"        "can"        "must"    
-     [8,] "nhs"        "time"       "business"   "government" "also"    
-     [9,] "work"       "education"  "budget"     "agreement"  "now"     
-    [10,] "many"       "made"       "labour"     "community"  "country" 
+          housing      education    transport    other1      other2    
+     [1,] "government" "people"     "prime"      "european"  "prime"   
+     [2,] "members"    "government" "said"       "countries" "people"  
+     [3,] "may"        "tax"        "government" "union"     "can"     
+     [4,] "made"       "health"     "people"     "can"       "support" 
+     [5,] "one"        "chancellor" "now"        "europe"    "country" 
+     [6,] "said"       "year"       "us"         "agreement" "us"      
+     [7,] "matter"     "years"      "can"        "council"   "also"    
+     [8,] "time"       "budget"     "business"   "community" "security"
+     [9,] "debate"     "country"    "party"      "also"      "work"    
+    [10,] "shall"      "education"  "just"       "economic"  "must"    
 
 ``` r
 head(seeded_topics_custom$theta, 10)
 ```
 
-                  housing education   transport      other1      other2
-    speech_1  0.011086475 0.8891353 0.015521064 0.002217295 0.082039911
-    speech_2  0.041474654 0.8125960 0.010752688 0.056835637 0.078341014
-    speech_3  0.086315789 0.6715789 0.132631579 0.107368421 0.002105263
-    speech_4  0.017306245 0.6839729 0.024830700 0.199398044 0.074492099
-    speech_5  0.012048193 0.4698795 0.469879518 0.036144578 0.012048193
-    speech_6  0.012600229 0.3883162 0.431844215 0.166093929 0.001145475
-    speech_7  0.159420290 0.1304348 0.565217391 0.130434783 0.014492754
-    speech_8  0.009009009 0.7297297 0.009009009 0.243243243 0.009009009
-    speech_9  0.004566210 0.7077626 0.114155251 0.168949772 0.004566210
-    speech_10 0.064935065 0.6883117 0.038961039 0.194805195 0.012987013
+                housing   education  transport      other1      other2
+    speech_1  0.7339246 0.033259424 0.07760532 0.011086475 0.144124169
+    speech_2  0.6251920 0.019969278 0.17665131 0.004608295 0.173579109
+    speech_3  0.6842105 0.204210526 0.06105263 0.040000000 0.010526316
+    speech_4  0.5545523 0.023325809 0.16779533 0.231000752 0.023325809
+    speech_5  0.5180723 0.349397590 0.08433735 0.036144578 0.012048193
+    speech_6  0.4272623 0.429553265 0.05612829 0.085910653 0.001145475
+    speech_7  0.2463768 0.449275362 0.04347826 0.188405797 0.072463768
+    speech_8  0.6756757 0.009009009 0.18918919 0.117117117 0.009009009
+    speech_9  0.7625571 0.105022831 0.11415525 0.004566210 0.013698630
+    speech_10 0.9220779 0.012987013 0.03896104 0.012987013 0.012987013
 
 9.  Write a short reflection: how would you use an LLM to help label the
     topics in this lab, and how would you check that the labels are not

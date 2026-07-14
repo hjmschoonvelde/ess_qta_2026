@@ -435,6 +435,94 @@ head(rowSums(lda_6$theta), 10)
      speech_9 speech_10 
             1         1 
 
+## Compare models using perplexity
+
+Perplexity is a model-fit diagnostic. It asks how surprising the
+observed words are under the fitted topic model. Lower perplexity means
+that the model assigns higher probability to the words we observe in the
+speeches.
+
+The intuition is simple: if a model has learned a health topic, it
+should not be very surprised by words such as `nhs`, `patients`, and
+`care` in a health-related speech. If it is surprised by many words
+across many speeches, perplexity will be higher.
+
+The function below calculates in-sample perplexity from the fitted LDA
+model. In a research project, we would ideally evaluate held-out text as
+well. Here we use in-sample perplexity because it makes the mechanics
+transparent and keeps the lab manageable.
+
+``` r
+calculate_lda_perplexity <- function(model, data) {
+  feature_names <- colnames(model$phi)
+  counts <- as.matrix(data[, feature_names])
+  predicted_probabilities <- model$theta %*% model$phi
+  predicted_probabilities <- pmax(predicted_probabilities, 1e-12)
+
+  log_likelihood <- sum(counts * log(predicted_probabilities))
+  total_tokens <- sum(counts)
+
+  exp(-log_likelihood / total_tokens)
+}
+```
+
+Now we compare models with different numbers of topics. This takes a
+little longer because we estimate several LDA models.
+
+``` r
+set.seed(20260714)
+
+k_candidates <- c(3, 6, 9)
+
+perplexity_results <- bind_rows(
+  lapply(k_candidates, function(k_value) {
+    model <- textmodel_lda(
+      topic_dfm,
+      k = k_value,
+      alpha = 0.5,
+      max_iter = 200
+    )
+
+    tibble(
+      k = k_value,
+      perplexity = calculate_lda_perplexity(model, topic_dfm)
+    )
+  })
+)
+
+perplexity_results
+```
+
+    # A tibble: 3 × 2
+          k perplexity
+      <dbl>      <dbl>
+    1     3      1803.
+    2     6      1625.
+    3     9      1528.
+
+``` r
+ggplot(
+  perplexity_results,
+  aes(x = k, y = perplexity)
+) +
+  geom_line(color = "#4B4B4B") +
+  geom_point(size = 2.5, color = "#B00020") +
+  scale_x_continuous(breaks = k_candidates) +
+  labs(
+    x = "Number of topics (k)",
+    y = "In-sample perplexity"
+  ) +
+  theme_minimal()
+```
+
+![](Lab_Session_QTA_7_files/figure-commonmark/plot_lda_perplexity-1.png)
+
+In this example, perplexity falls as we add more topics. That is common:
+more complex models can often fit the observed words better. But lower
+perplexity does not automatically mean better social science. We still
+need to inspect terms, read high-topic speeches, and ask whether the
+topics are interpretable and useful.
+
 ## Visualise topic prevalence
 
 We first convert `theta` into a tidy data frame and add document
@@ -891,33 +979,33 @@ seeded_topics <- textmodel_seededlda(
 terms(seeded_topics, 10)
 ```
 
-          economy      health       security     environment 
-     [1,] "prime"      "people"     "prime"      "european"  
-     [2,] "tax"        "health"     "security"   "can"       
-     [3,] "government" "care"       "government" "countries" 
-     [4,] "budget"     "nhs"        "said"       "union"     
-     [5,] "economy"    "can"        "us"         "europe"    
-     [6,] "economic"   "government" "police"     "deal"      
-     [7,] "jobs"       "country"    "can"        "government"
-     [8,] "people"     "need"       "defence"    "council"   
-     [9,] "chancellor" "work"       "members"    "agreement" 
-    [10,] "said"       "many"       "must"       "community" 
+          economy      health       security   environment 
+     [1,] "tax"        "prime"      "security" "government"
+     [2,] "government" "health"     "prime"    "european"  
+     [3,] "prime"      "people"     "can"      "can"       
+     [4,] "budget"     "care"       "defence"  "prime"     
+     [5,] "economic"   "nhs"        "police"   "said"      
+     [6,] "people"     "government" "support"  "union"     
+     [7,] "economy"    "said"       "us"       "made"      
+     [8,] "jobs"       "can"        "must"     "members"   
+     [9,] "chancellor" "service"    "also"     "deal"      
+    [10,] "year"       "country"    "people"   "europe"    
 
 ``` r
 head(seeded_topics$theta, 10)
 ```
 
-                  economy      health   security environment
-    speech_1  0.051111111 0.006666667 0.93111111  0.01111111
-    speech_2  0.140000000 0.047692308 0.80153846  0.01076923
-    speech_3  0.208860759 0.078059072 0.60126582  0.11181435
-    speech_4  0.160391566 0.012801205 0.59864458  0.22816265
-    speech_5  0.500000000 0.012195122 0.45121951  0.03658537
-    speech_6  0.638761468 0.008027523 0.18692661  0.16628440
-    speech_7  0.455882353 0.338235294 0.07352941  0.13235294
-    speech_8  0.009090909 0.045454545 0.60909091  0.33636364
-    speech_9  0.252293578 0.059633028 0.53669725  0.15137615
-    speech_10 0.039473684 0.039473684 0.75000000  0.17105263
+                  economy     health    security environment
+    speech_1  0.068888889 0.12222222 0.015555556   0.7933333
+    speech_2  0.004615385 0.41076923 0.020000000   0.5646154
+    speech_3  0.229957806 0.18354430 0.027426160   0.5590717
+    speech_4  0.086596386 0.04593373 0.070030120   0.7974398
+    speech_5  0.500000000 0.03658537 0.012195122   0.4512195
+    speech_6  0.498853211 0.02637615 0.017201835   0.4575688
+    speech_7  0.455882353 0.10294118 0.161764706   0.2794118
+    speech_8  0.009090909 0.04545455 0.009090909   0.9363636
+    speech_9  0.160550459 0.06880734 0.013761468   0.7568807
+    speech_10 0.039473684 0.01315789 0.013157895   0.9342105
 
 Seeded LDA can also include residual topics. These capture language that
 does not fit well into the seeded topics.
@@ -935,28 +1023,28 @@ seeded_topics_residual <- textmodel_seededlda(
 terms(seeded_topics_residual, 10)
 ```
 
-          economy      health       security    environment other1     
-     [1,] "tax"        "health"     "security"  "people"    "european" 
-     [2,] "prime"      "people"     "prime"     "country"   "union"    
-     [3,] "budget"     "care"       "defence"   "prime"     "europe"   
-     [4,] "government" "nhs"        "police"    "can"       "agreement"
-     [5,] "economy"    "prime"      "can"       "also"      "deal"     
-     [6,] "economic"   "government" "support"   "energy"    "can"      
-     [7,] "jobs"       "need"       "must"      "us"        "countries"
-     [8,] "people"     "can"        "united"    "say"       "community"
-     [9,] "chancellor" "service"    "crime"     "want"      "eu"       
-    [10,] "business"   "many"       "terrorism" "think"     "council"  
+          economy      health       security   environment  other1     
+     [1,] "tax"        "health"     "security" "government" "european" 
+     [2,] "budget"     "people"     "prime"    "made"       "union"    
+     [3,] "government" "care"       "police"   "matter"     "europe"   
+     [4,] "economy"    "nhs"        "defence"  "report"     "agreement"
+     [5,] "economic"   "can"        "support"  "may"        "countries"
+     [6,] "jobs"       "need"       "can"      "state"      "deal"     
+     [7,] "prime"      "government" "crime"    "can"        "council"  
+     [8,] "chancellor" "work"       "us"       "shall"      "can"      
+     [9,] "people"     "service"    "people"   "members"    "community"
+    [10,] "year"       "country"    "must"     "make"       "eu"       
           other2      
      [1,] "prime"     
-     [2,] "government"
-     [3,] "said"      
-     [4,] "members"   
+     [2,] "said"      
+     [3,] "government"
+     [4,] "party"     
      [5,] "one"       
-     [6,] "may"       
-     [7,] "made"      
-     [8,] "matter"    
-     [9,] "time"      
-    [10,] "debate"    
+     [6,] "people"    
+     [7,] "us"        
+     [8,] "country"   
+     [9,] "members"   
+    [10,] "say"       
 
 ``` r
 seeded_theta <- as.data.frame(seeded_topics$theta)
