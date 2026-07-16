@@ -15,7 +15,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 | July 6 | [Slides PDF](Slides/Day_1/Slides_QTA_1.pdf) | July 13 | [Slides PDF](Slides/Day_6/Slides_QTA_6.pdf) |
 | July 7 | [Slides PDF](Slides/Day_2/Slides_QTA_2.pdf) | July 14 | [Slides PDF](Slides/Day_7/Slides_QTA_7.pdf) |
 | July 8 | [Slides PDF](Slides/Day_3/Slides_QTA_3.pdf) | July 15 | [Slides PDF](Slides/Day_8/Slides_QTA_8.pdf) |
-| July 9 | [Slides PDF](Slides/Day_4/Slides_QTA_4.pdf) | July 16 | Coming soon |
+| July 9 | [Slides PDF](Slides/Day_4/Slides_QTA_4.pdf) | July 16 | [Slides PDF](Slides/Day_9/Slides_QTA_9.pdf) |
 | July 10 | [Slides PDF](Slides/Day_5/Slides_QTA_5.pdf) | July 17 | Coming soon |
 
 ## Lab Sessions
@@ -30,7 +30,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 | July 13 | [Quarto file](Lab_sessions/Day_6/Lab_Session_QTA_6.qmd); [data](Lab_sessions/Day_6/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_6/Lab_Session_QTA_6.md) | [Quarto file](Lab_sessions/Day_6/Lab_Session_QTA_6_Answers.qmd); [view answers](Lab_sessions/Day_6/Lab_Session_QTA_6_Answers.md) |
 | July 14 | [Quarto file](Lab_sessions/Day_7/Lab_Session_QTA_7.qmd); [data](Lab_sessions/Day_7/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_7/Lab_Session_QTA_7.md) | [Quarto file](Lab_sessions/Day_7/Lab_Session_QTA_7_Answers.qmd); [view answers](Lab_sessions/Day_7/Lab_Session_QTA_7_Answers.md) |
 | July 15 | [Quarto file](Lab_sessions/Day_8/Lab_Session_QTA_8.qmd); [data](Lab_sessions/Day_8/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_8/Lab_Session_QTA_8.md) | [Quarto file](Lab_sessions/Day_8/Lab_Session_QTA_8_Answers.qmd); [view answers](Lab_sessions/Day_8/Lab_Session_QTA_8_Answers.md) |
-| July 16 | Coming soon | Coming soon |
+| July 16 | [Quarto file](Lab_sessions/Day_9/Lab_Session_QTA_9.qmd); [data](Lab_sessions/Day_9/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_9/Lab_Session_QTA_9.md) | [Quarto file](Lab_sessions/Day_9/Lab_Session_QTA_9_Answers.qmd); [view answers](Lab_sessions/Day_9/Lab_Session_QTA_9_Answers.md) |
 | July 17 | Coming soon | Coming soon |
 
 ## Acknowledgements
