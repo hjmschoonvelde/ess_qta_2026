@@ -139,7 +139,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 *Day 9 - July 16*
 
--	**Lecture**: New developments in supervised machine learning. Weak supervision. Transfer learning. Transformer-based model
+-	**Lecture**: New developments in supervised machine learning. Weak supervision. Transfer learning. Transformer-based models.
 
 -	**Lab**: Using BERT-NLI for zero-shot classification of House of Commons speeches; designing validation workflows.
 
