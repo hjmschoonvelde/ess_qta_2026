@@ -97,6 +97,26 @@ if (requireNamespace("rollama", quietly = TRUE)) {
     #   context_length <int>, embedding_length <int>, `1` <chr>, `2` <chr>,
     #   capabilities <chr>
 
+``` r
+rollama::list_models()
+```
+
+    # A tibble: 9 × 16
+      name      model modified_at    size digest parent_model format family families
+      <chr>     <chr> <chr>         <dbl> <chr>  <chr>        <chr>  <chr>  <list>  
+    1 llama3.2… llam… 2026-07-16… 1.32e 9 baf6a… ""           gguf   llama  <chr>   
+    2 deepseek… deep… 2025-07-17… 5.23e 9 69958… ""           gguf   qwen3  <chr>   
+    3 llama3.2… llam… 2025-07-12… 2.02e 9 a80c4… ""           gguf   llama  <chr>   
+    4 llama3.1… llam… 2024-07-24… 4.66e 9 a3403… ""           gguf   llama  <chr>   
+    5 llama2:l… llam… 2024-07-18… 3.83e 9 78e26… ""           gguf   llama  <chr>   
+    6 llava:la… llav… 2024-02-23… 4.73e 9 8dd30… ""           gguf   llama  <chr>   
+    7 llava:la… llav… 2024-02-23… 4.73e 9 8dd30… ""           gguf   llama  <chr>   
+    8 mixtral:… mixt… 2024-02-23… 2.64e10 7708c… ""           gguf   llama  <chr>   
+    9 vicuna:l… vicu… 2024-02-23… 3.83e 9 37073… ""           gguf   llama  <NULL>  
+    # ℹ 7 more variables: parameter_size <chr>, quantization_level <chr>,
+    #   context_length <int>, embedding_length <int>, `1` <chr>, `2` <chr>,
+    #   capabilities <chr>
+
 You can also check the same thing from the terminal:
 
 ``` bash
@@ -541,6 +561,8 @@ head(names(leader_texts))
 For classroom speed, we code a small balanced subset of speeches. The
 model used below is local, but it still takes time to run. That is why
 the live model call is shown but not run automatically during rendering.
+Run this chunk manually before running the inspection, plotting,
+validation, and provenance chunks below.
 
 ``` r
 ollama_demo_ids <- c(
@@ -602,78 +624,16 @@ If you only have the smaller teaching model installed, change the model
 string to `"ollama/llama3.2:1b"`. It will run faster, but the output may
 be less reliable.
 
-## Inspect Actual Ollama Output
+## Inspect Ollama Output
 
-The object below stores output from an actual local Ollama run using
-`llama3.2` with `temperature = 0`. This keeps the lab renderable while
-still letting us inspect real model output. If you rerun the previous
-chunk on your own machine, your output may differ slightly because local
-model versions and prompt handling can vary.
+After running the live `qlm_code()` call, inspect the object returned by
+`quallmer`. From this point onward, we use only one model-output object:
+`coded_leaders_ollama`.
 
 ``` r
-ollama_coded_leaders <- tibble::tibble(
-  .id = c(
-    "leader_4898", "leader_5492", "leader_4975", "leader_5518",
-    "leader_3939", "leader_3968", "leader_3927", "leader_3916"
-  ),
-  credit_claim = c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE),
-  blame_attribution = c(TRUE, FALSE, TRUE, FALSE, TRUE, TRUE, FALSE, TRUE),
-  main_claim_type = factor(
-    c(
-      "blame_attribution", "neither", "blame_attribution", "neither",
-      "blame_attribution", "blame_attribution", "credit_claim",
-      "blame_attribution"
-    ),
-    levels = claim_type_labels
-  ),
-  target_actor = factor(
-    c(
-      "unclear_or_none", "unclear_or_none", "opposing_party_or_government",
-      "international_actor", "public_body", "private_actor", "public_body",
-      "private_actor"
-    ),
-    levels = target_actor_labels
-  ),
-  target_name = c(
-    "European friends and partners",
-    "unspecified",
-    "the Leader of the Opposition",
-    "India authorities",
-    "News International",
-    "the Prime Minister's government or administration",
-    "United States",
-    "British arms"
-  ),
-  policy_area = factor(
-    c(
-      "foreign_affairs", "economy", "foreign_affairs", "foreign_affairs",
-      "immigration", "public_services", "foreign_affairs", "foreign_affairs"
-    ),
-    levels = policy_area_labels
-  ),
-  confidence = c(0.8, 0.5, 0.8, 0.5, 0.8, 0.8, 0.8, 0.8),
-  evidence = c(
-    "has made it more difficult for us to get a deal",
-    "The ability to roll out this vaccine",
-    "That is the result of the decision that the Leader of the Opposition took last night.",
-    "We will continue to work closely with the Indian authorities",
-    "News International knew that phone hacking was widespread as long ago as 2007.",
-    "He cannot even be in the same room as the doctors and nurses.",
-    "We are grateful to President Obama for taking the decision and to the US special forces who carried it out.",
-    "we are worried about the use of British arms for internal repression"
-  )
-)
-
-ollama_coded_leaders |>
+coded_leaders_ollama |>
   count(main_claim_type, sort = TRUE)
 ```
-
-    # A tibble: 3 × 2
-      main_claim_type       n
-      <fct>             <int>
-    1 blame_attribution     5
-    2 neither               2
-    3 credit_claim          1
 
 ## Join Codes Back To Metadata
 
@@ -683,7 +643,7 @@ to join those codes back to the original metadata: date, party, leader,
 election period, agenda, and the speech text.
 
 ``` r
-coded_with_metadata <- ollama_coded_leaders |>
+coded_with_metadata <- coded_leaders_ollama |>
   left_join(
     leader_llm |>
       select(
@@ -713,19 +673,6 @@ coded_with_metadata |>
   slice_head(n = 10)
 ```
 
-    # A tibble: 8 × 8
-      .id      party leader election_period main_claim_type target_actor policy_area
-      <chr>    <fct> <chr>  <chr>           <fct>           <fct>        <fct>      
-    1 leader_… Cons… Boris… 56th Parliamen… blame_attribut… unclear_or_… foreign_af…
-    2 leader_… Cons… Boris… 57th Parliamen… neither         unclear_or_… economy    
-    3 leader_… Cons… Boris… 56th Parliamen… blame_attribut… opposing_pa… foreign_af…
-    4 leader_… Cons… Boris… 57th Parliamen… neither         internation… foreign_af…
-    5 leader_… Labo… Ed Mi… 54th Parliamen… blame_attribut… public_body  immigration
-    6 leader_… Labo… Ed Mi… 54th Parliamen… blame_attribut… private_act… public_ser…
-    7 leader_… Labo… Ed Mi… 54th Parliamen… credit_claim    public_body  foreign_af…
-    8 leader_… Labo… Ed Mi… 54th Parliamen… blame_attribut… private_act… foreign_af…
-    # ℹ 1 more variable: confidence <dbl>
-
 ## Compare Parties And Leaders
 
 The next table asks the substantive question directly: in this coded
@@ -746,12 +693,6 @@ leader_claim_rates <- coded_with_metadata |>
 
 leader_claim_rates
 ```
-
-    # A tibble: 2 × 6
-      party        leader            n credit_rate blame_rate mixed_rate
-      <fct>        <chr>         <int>       <dbl>      <dbl>      <dbl>
-    1 Conservative Boris Johnson     4        0          0.5           0
-    2 Labour       Ed Miliband       4        0.25       0.75          0
 
 ``` r
 claim_plot_data <- leader_claim_rates |>
@@ -811,11 +752,10 @@ claim_plot_data |>
   )
 ```
 
-![](Lab_Session_QTA_10_files/figure-commonmark/plot_credit_blame_by_leader-1.png)
-
 This plot is based on a small Ollama-coded sample, so we should not
 interpret the substantive pattern as evidence. The workflow is the key
-point: code speeches, join codes to metadata, then compare leaders.
+point: code speeches with Ollama, join codes to metadata, then compare
+leaders.
 
 ## Inspect The Evidence
 
@@ -839,17 +779,6 @@ coded_with_metadata |>
   slice_head(n = 8)
 ```
 
-    # A tibble: 6 × 8
-      date       party        leader agenda main_claim_type target_actor policy_area
-      <date>     <fct>        <chr>  <chr>  <fct>           <fct>        <fct>      
-    1 2019-09-25 Conservative Boris… Prime… blame_attribut… unclear_or_… foreign_af…
-    2 2019-10-23 Conservative Boris… Engag… blame_attribut… opposing_pa… foreign_af…
-    3 2011-07-13 Labour       Ed Mi… Ruper… blame_attribut… public_body  immigration
-    4 2012-02-22 Labour       Ed Mi… Engag… blame_attribut… private_act… public_ser…
-    5 2011-05-03 Labour       Ed Mi… <NA>   credit_claim    public_body  foreign_af…
-    6 2011-03-21 Labour       Ed Mi… Unite… blame_attribut… private_act… foreign_af…
-    # ℹ 1 more variable: evidence <chr>
-
 ## Check Output Consistency
 
 Structured output makes it easier to check whether the model
@@ -862,7 +791,7 @@ Boolean fields:
 - `neither` means both are FALSE.
 
 ``` r
-checked_ollama_output <- ollama_coded_leaders |>
+checked_ollama_output <- coded_leaders_ollama |>
   mutate(
     expected_main_claim_type = case_when(
       credit_claim & blame_attribution ~ "mixed_credit_and_blame",
@@ -884,20 +813,6 @@ checked_ollama_output |>
   )
 ```
 
-    # A tibble: 8 × 6
-      .id      credit_claim blame_attribution main_claim_type expected_main_claim_…¹
-      <chr>    <lgl>        <lgl>             <fct>           <chr>                 
-    1 leader_… FALSE        TRUE              blame_attribut… blame_attribution     
-    2 leader_… FALSE        FALSE             neither         neither               
-    3 leader_… FALSE        TRUE              blame_attribut… blame_attribution     
-    4 leader_… FALSE        FALSE             neither         neither               
-    5 leader_… FALSE        TRUE              blame_attribut… blame_attribution     
-    6 leader_… FALSE        TRUE              blame_attribut… blame_attribution     
-    7 leader_… TRUE         FALSE             credit_claim    credit_claim          
-    8 leader_… FALSE        TRUE              blame_attribut… blame_attribution     
-    # ℹ abbreviated name: ¹​expected_main_claim_type
-    # ℹ 1 more variable: internally_consistent <lgl>
-
 If this check fails, do not simply fix the data silently. Inspect the
 speech, revise the codebook if needed, and rerun the model. In a real
 project, internal consistency is only the first check. We still need
@@ -915,7 +830,7 @@ Here we create a small mock human-coded set. In your project, this
 should come from actual human coding.
 
 ``` r
-human_gold <- ollama_coded_leaders |>
+human_gold <- coded_leaders_ollama |>
   slice_head(n = 12) |>
   select(
     .id,
@@ -936,18 +851,6 @@ human_gold <- ollama_coded_leaders |>
 
 human_gold
 ```
-
-    # A tibble: 8 × 6
-      .id    credit_claim blame_attribution main_claim_type target_actor policy_area
-      <chr>  <lgl>        <lgl>             <chr>           <fct>        <fct>      
-    1 leade… FALSE        TRUE              blame_attribut… unclear_or_… foreign_af…
-    2 leade… FALSE        FALSE             neither         unclear_or_… economy    
-    3 leade… FALSE        FALSE             neither         opposing_pa… foreign_af…
-    4 leade… FALSE        FALSE             neither         internation… foreign_af…
-    5 leade… FALSE        TRUE              blame_attribut… public_body  immigration
-    6 leade… FALSE        TRUE              blame_attribut… private_act… public_ser…
-    7 leade… TRUE         FALSE             credit_claim    public_body  foreign_af…
-    8 leade… FALSE        FALSE             neither         private_act… foreign_af…
 
 With real `quallmer` objects, convert the human data and validate.
 
@@ -972,11 +875,11 @@ qlm_validate(
 )
 ```
 
-The runnable example below computes a simple validation table from the
-stored Ollama output.
+Once you have both model-coded and human-coded data, you can inspect
+disagreements directly.
 
 ``` r
-example_validation <- ollama_coded_leaders |>
+example_validation <- coded_leaders_ollama |>
   inner_join(
     human_gold |>
       rename(
@@ -996,17 +899,7 @@ example_validation <- ollama_coded_leaders |>
 
 example_validation |>
   count(human_main_claim_type, main_claim_type)
-```
 
-    # A tibble: 4 × 3
-      human_main_claim_type main_claim_type       n
-      <chr>                 <fct>             <int>
-    1 blame_attribution     blame_attribution     3
-    2 credit_claim          credit_claim          1
-    3 neither               blame_attribution     2
-    4 neither               neither               2
-
-``` r
 example_validation |>
   summarise(
     claim_type_accuracy = mean(claim_type_correct),
@@ -1015,11 +908,6 @@ example_validation |>
     n = n()
   )
 ```
-
-    # A tibble: 1 × 4
-      claim_type_accuracy credit_accuracy blame_accuracy     n
-                    <dbl>           <dbl>          <dbl> <int>
-    1                0.75               1           0.75     8
 
 ## Provenance And Reporting
 
@@ -1175,7 +1063,7 @@ and
 # Your answer here
 ```
 
-6.  Using `ollama_coded_leaders`, calculate the share of speeches with
+6.  Using `coded_leaders_ollama`, calculate the share of speeches with
     credit claims and blame attributions by `leader`.
 
 ``` r

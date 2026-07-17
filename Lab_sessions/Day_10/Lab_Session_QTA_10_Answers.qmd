@@ -381,7 +381,7 @@ names(leader_texts) <- leader_llm$speech_id
 head(names(leader_texts))
 ```
 
-For classroom speed, we code a small balanced subset of speeches. The model used below is local, but it still takes time to run. That is why the live model call is shown but not run automatically during rendering.
+For classroom speed, we code a small balanced subset of speeches. The model used below is local, but it still takes time to run. That is why the live model call is shown but not run automatically during rendering. Run this chunk manually before running the inspection, plotting, validation, and provenance chunks below.
 
 ```{r select_ollama_demo_texts}
 ollama_demo_ids <- c(
@@ -424,65 +424,12 @@ coded_leaders_ollama
 
 If you only have the smaller teaching model installed, change the model string to `"ollama/llama3.2:1b"`. It will run faster, but the output may be less reliable.
 
-## Inspect Actual Ollama Output
+## Inspect Ollama Output
 
-The object below stores output from an actual local Ollama run using `llama3.2` with `temperature = 0`. This keeps the lab renderable while still letting us inspect real model output. If you rerun the previous chunk on your own machine, your output may differ slightly because local model versions and prompt handling can vary.
+After running the live `qlm_code()` call, inspect the object returned by `quallmer`. From this point onward, we use only one model-output object: `coded_leaders_ollama`.
 
-```{r load_actual_ollama_output}
-ollama_coded_leaders <- tibble::tibble(
-  .id = c(
-    "leader_4898", "leader_5492", "leader_4975", "leader_5518",
-    "leader_3939", "leader_3968", "leader_3927", "leader_3916"
-  ),
-  credit_claim = c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE),
-  blame_attribution = c(TRUE, FALSE, TRUE, FALSE, TRUE, TRUE, FALSE, TRUE),
-  main_claim_type = factor(
-    c(
-      "blame_attribution", "neither", "blame_attribution", "neither",
-      "blame_attribution", "blame_attribution", "credit_claim",
-      "blame_attribution"
-    ),
-    levels = claim_type_labels
-  ),
-  target_actor = factor(
-    c(
-      "unclear_or_none", "unclear_or_none", "opposing_party_or_government",
-      "international_actor", "public_body", "private_actor", "public_body",
-      "private_actor"
-    ),
-    levels = target_actor_labels
-  ),
-  target_name = c(
-    "European friends and partners",
-    "unspecified",
-    "the Leader of the Opposition",
-    "India authorities",
-    "News International",
-    "the Prime Minister's government or administration",
-    "United States",
-    "British arms"
-  ),
-  policy_area = factor(
-    c(
-      "foreign_affairs", "economy", "foreign_affairs", "foreign_affairs",
-      "immigration", "public_services", "foreign_affairs", "foreign_affairs"
-    ),
-    levels = policy_area_labels
-  ),
-  confidence = c(0.8, 0.5, 0.8, 0.5, 0.8, 0.8, 0.8, 0.8),
-  evidence = c(
-    "has made it more difficult for us to get a deal",
-    "The ability to roll out this vaccine",
-    "That is the result of the decision that the Leader of the Opposition took last night.",
-    "We will continue to work closely with the Indian authorities",
-    "News International knew that phone hacking was widespread as long ago as 2007.",
-    "He cannot even be in the same room as the doctors and nurses.",
-    "We are grateful to President Obama for taking the decision and to the US special forces who carried it out.",
-    "we are worried about the use of British arms for internal repression"
-  )
-)
-
-ollama_coded_leaders |>
+```{r inspect_ollama_output, eval=FALSE}
+coded_leaders_ollama |>
   count(main_claim_type, sort = TRUE)
 ```
 
@@ -490,8 +437,8 @@ ollama_coded_leaders |>
 
 The model output only contains the coding results and the `.id` for each speech. To ask substantive questions about parties and leaders, we need to join those codes back to the original metadata: date, party, leader, election period, agenda, and the speech text.
 
-```{r join_codes_to_metadata}
-coded_with_metadata <- ollama_coded_leaders |>
+```{r join_codes_to_metadata, eval=FALSE}
+coded_with_metadata <- coded_leaders_ollama |>
   left_join(
     leader_llm |>
       select(
@@ -525,7 +472,7 @@ coded_with_metadata |>
 
 The next table asks the substantive question directly: in this coded sample, which leaders have higher estimated rates of credit claiming and blame attribution?
 
-```{r summarise_claims_by_leader}
+```{r summarise_claims_by_leader, eval=FALSE}
 leader_claim_rates <- coded_with_metadata |>
   group_by(party, leader) |>
   summarise(
@@ -540,7 +487,7 @@ leader_claim_rates <- coded_with_metadata |>
 leader_claim_rates
 ```
 
-```{r plot_credit_blame_by_leader}
+```{r plot_credit_blame_by_leader, eval=FALSE}
 claim_plot_data <- leader_claim_rates |>
   pivot_longer(
     cols = c(credit_rate, blame_rate),
@@ -598,13 +545,13 @@ claim_plot_data |>
   )
 ```
 
-This plot is based on a small Ollama-coded sample, so we should not interpret the substantive pattern as evidence. The workflow is the key point: code speeches, join codes to metadata, then compare leaders.
+This plot is based on a small Ollama-coded sample, so we should not interpret the substantive pattern as evidence. The workflow is the key point: code speeches with Ollama, join codes to metadata, then compare leaders.
 
 ## Inspect The Evidence
 
 The evidence field matters because it makes the coding easier to audit. If the evidence does not support the label, the model may have guessed, over-generalised, or relied on irrelevant cues.
 
-```{r inspect_coded_evidence}
+```{r inspect_coded_evidence, eval=FALSE}
 coded_with_metadata |>
   filter(main_claim_type != "neither") |>
   select(
@@ -629,8 +576,8 @@ Structured output makes it easier to check whether the model contradicted itself
 - `mixed_credit_and_blame` means both are TRUE;
 - `neither` means both are FALSE.
 
-```{r check_ollama_output_consistency}
-checked_ollama_output <- ollama_coded_leaders |>
+```{r check_ollama_output_consistency, eval=FALSE}
+checked_ollama_output <- coded_leaders_ollama |>
   mutate(
     expected_main_claim_type = case_when(
       credit_claim & blame_attribution ~ "mixed_credit_and_blame",
@@ -660,8 +607,8 @@ No LLM coding project is complete without validation. A practical strategy is to
 
 Here we create a small mock human-coded set. In your project, this should come from actual human coding.
 
-```{r create_mock_human_gold}
-human_gold <- ollama_coded_leaders |>
+```{r create_mock_human_gold, eval=FALSE}
+human_gold <- coded_leaders_ollama |>
   slice_head(n = 12) |>
   select(
     .id,
@@ -706,10 +653,10 @@ qlm_validate(
 )
 ```
 
-The runnable example below computes a simple validation table from the stored Ollama output.
+Once you have both model-coded and human-coded data, you can inspect disagreements directly.
 
-```{r validate_example_output}
-example_validation <- ollama_coded_leaders |>
+```{r validate_example_output, eval=FALSE}
+example_validation <- coded_leaders_ollama |>
   inner_join(
     human_gold |>
       rename(
@@ -881,8 +828,8 @@ binary_coded_leaders
 
 4. Create a small mock human-coded data frame with `.id` and `blame_attribution` for the first eight speeches.
 
-```{r exercise_mock_human_codes}
-mock_human_binary <- ollama_coded_leaders |>
+```{r exercise_mock_human_codes, eval=FALSE}
+mock_human_binary <- coded_leaders_ollama |>
   slice_head(n = 8) |>
   transmute(
     .id,
@@ -915,10 +862,10 @@ qlm_validate(
 )
 ```
 
-6. Using `ollama_coded_leaders`, calculate the share of speeches with credit claims and blame attributions by `leader`.
+6. Using `coded_leaders_ollama`, calculate the share of speeches with credit claims and blame attributions by `leader`.
 
-```{r exercise_claim_share_by_leader}
-ollama_coded_leaders |>
+```{r exercise_claim_share_by_leader, eval=FALSE}
+coded_leaders_ollama |>
   left_join(
     leader_llm |>
       select(speech_id, party, leader),
@@ -936,8 +883,8 @@ ollama_coded_leaders |>
 
 7. Inspect three speeches where the Ollama output labels the claim type as `neither`. What information would you need to decide whether that label is correct?
 
-```{r exercise_inspect_neither}
-ollama_coded_leaders |>
+```{r exercise_inspect_neither, eval=FALSE}
+coded_leaders_ollama |>
   filter(main_claim_type == "neither") |>
   left_join(
     leader_llm |>
