@@ -16,7 +16,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 | July 7 | [Slides PDF](Slides/Day_2/Slides_QTA_2.pdf) | July 14 | [Slides PDF](Slides/Day_7/Slides_QTA_7.pdf) |
 | July 8 | [Slides PDF](Slides/Day_3/Slides_QTA_3.pdf) | July 15 | [Slides PDF](Slides/Day_8/Slides_QTA_8.pdf) |
 | July 9 | [Slides PDF](Slides/Day_4/Slides_QTA_4.pdf) | July 16 | [Slides PDF](Slides/Day_9/Slides_QTA_9.pdf) |
-| July 10 | [Slides PDF](Slides/Day_5/Slides_QTA_5.pdf) | July 17 | Coming soon |
+| July 10 | [Slides PDF](Slides/Day_5/Slides_QTA_5.pdf) | July 17 | [Slides PDF](Slides/Day_10/Slides_QTA_10.pdf) |
 
 ## Lab Sessions
 
@@ -31,7 +31,7 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 | July 14 | [Quarto file](Lab_sessions/Day_7/Lab_Session_QTA_7.qmd); [data](Lab_sessions/Day_7/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_7/Lab_Session_QTA_7.md) | [Quarto file](Lab_sessions/Day_7/Lab_Session_QTA_7_Answers.qmd); [view answers](Lab_sessions/Day_7/Lab_Session_QTA_7_Answers.md) |
 | July 15 | [Quarto file](Lab_sessions/Day_8/Lab_Session_QTA_8.qmd); [data](Lab_sessions/Day_8/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_8/Lab_Session_QTA_8.md) | [Quarto file](Lab_sessions/Day_8/Lab_Session_QTA_8_Answers.qmd); [view answers](Lab_sessions/Day_8/Lab_Session_QTA_8_Answers.md) |
 | July 16 | [Quarto file](Lab_sessions/Day_9/Lab_Session_QTA_9.qmd); [data](Lab_sessions/Day_9/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_9/Lab_Session_QTA_9.md) | [Quarto file](Lab_sessions/Day_9/Lab_Session_QTA_9_Answers.qmd); [view answers](Lab_sessions/Day_9/Lab_Session_QTA_9_Answers.md) |
-| July 17 | Coming soon | Coming soon |
+| July 17 | [Quarto file](Lab_sessions/Day_10/Lab_Session_QTA_10.qmd); [data](Lab_sessions/Day_10/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_10/Lab_Session_QTA_10.md) | [Quarto file](Lab_sessions/Day_10/Lab_Session_QTA_10_Answers.qmd); [view answers](Lab_sessions/Day_10/Lab_Session_QTA_10_Answers.md) |
 
 ## Acknowledgements
 
@@ -145,7 +145,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: LLMs in QTA: annotation, classification, extraction, validation, and reporting. Concluding remarks 
 
--	**Lab**: LLM-assisted coding with `quallmer` and `ellmer`; writing codebooks, coding House of Commons speeches, comparing prompts or models, validating outputs, and preserving provenance.
+-	**Lab**: LLM-assisted coding with `quallmer` and `ellmer`; setting up Ollama, writing structured codebooks, coding leader speeches for credit claiming and blame attribution, validating outputs, and preserving provenance.
 
 - **Readings**:
 
