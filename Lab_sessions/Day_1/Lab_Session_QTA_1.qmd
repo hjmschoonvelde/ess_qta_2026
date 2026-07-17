@@ -38,7 +38,7 @@ Throughout the course, we will use a sample of approximately 5,000 House of Comm
 
 We will use `R` in Positron. Positron is an integrated development environment, or IDE, for data science work. It helps you write code, run code, inspect objects, view plots, and work with files in one place. Positron also allows you to switch between R and Python, and to use R Markdown and Quarto documents for reproducible research. If you have used other IDEs, such as RStudio, you will find Positron familiar, but otherwise it may take some getting used to (but you will!). Positron is free to use and available for Windows, Mac, and Linux. You can download it from [here](https://positron.posit.co/download.html). 
 
-For this course, open the main course folder in Positron rather than opening individual lab folders. This folder is a Quarto project, which means that code is evaluated relative to the main course folder when the labs are rendered. Using one project folder also keeps file paths simple: paths such as `Labs/Lab_1/hc_sample_1945_2025.rds` start from the main course folder.
+For this course, open the main course folder in Positron rather than opening individual lab folders. This folder is a Quarto project, which means that code is evaluated relative to the main course folder when the labs are rendered. Using one project folder also keeps file paths simple: paths such as `Data/hc_sample_1945_2025.rds` start from the main course folder.
 
 The interface will usually contain these areas:
 
@@ -188,7 +188,7 @@ The data file is stored as an `.rds` file, which is a native R file format. Here
 Because this course folder is a Quarto project, both rendering and interactive work should use the main course folder as the working directory. The path below therefore starts from the main course folder.
 
 ```{r read_hoc_sample}
-data_path <- "Labs/Lab_1/hc_sample_1945_2025.rds"
+data_path <- "Data/hc_sample_1945_2025.rds"
 
 hoc <- readRDS(data_path)
 ```
@@ -368,10 +368,10 @@ topic_plot <- ggplot(topic_by_year, aes(x = year)) +
 topic_plot
 ```
 
-Finally, let us save one of the plots. Because our paths start from the main course folder, we write the PNG file to the `Labs/Lab_1` folder explicitly.
+Finally, let us save one of the plots. Because our paths start from the main course folder, we write the PNG file to the `Lab_sessions/Day_1` folder explicitly.
 
 ```{r save_party_plot}
-ggsave("Labs/Lab_1/hoc_party_counts.png", plot = party_plot, width = 8, height = 5)
+ggsave("Lab_sessions/Day_1/hoc_party_counts.png", plot = party_plot, width = 8, height = 5)
 ```
 
 ## A note on LLMs and text input

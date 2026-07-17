@@ -8,6 +8,14 @@ Course Slack: [essqta26.slack.com](https://essqta26.slack.com)
 
 Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/docs/get-started/), and [Positron](https://positron.posit.co/download.html) before the first lab.
 
+## How to use this repository
+
+- Use **view lab** to read a rendered lab in your browser.
+- Use the **Quarto file** if you want to run or edit the lab yourself.
+- If you run a lab, download/open the whole repository as one project folder in Positron. The `.qmd` files use paths relative to the repository root.
+- Data used by the labs are stored in the root [`Data`](Data) folder. Keep that folder in place when running the Quarto files.
+- The answers files are intended for checking your work after trying the exercises.
+
 ## Slides
 
 | Date | Slides | Date | Slides |
@@ -22,16 +30,16 @@ Please install [R](https://cran.r-project.org/), [Quarto](https://quarto.org/doc
 
 | Date | Lab | Answers |
 | --- | :---: | :---: |
-| July 6 | [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1.qmd); [data](Lab_sessions/Day_1/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_1/Lab_Session_QTA_1.md) | [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.qmd); [view answers](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.md) |
-| July 7 | [Quarto file](Lab_sessions/Day_2/Lab_Session_QTA_2.qmd); [data](Lab_sessions/Day_2/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_2/Lab_Session_QTA_2.md) | [Quarto file](Lab_sessions/Day_2/Lab_Session_QTA_2_Answers.qmd); [view answers](Lab_sessions/Day_2/Lab_Session_QTA_2_Answers.md) |
-| July 8 | [Quarto file](Lab_sessions/Day_3/Lab_Session_QTA_3.qmd); [data](Lab_sessions/Day_3/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_3/Lab_Session_QTA_3.md) | [Quarto file](Lab_sessions/Day_3/Lab_Session_QTA_3_Answers.qmd); [view answers](Lab_sessions/Day_3/Lab_Session_QTA_3_Answers.md) |
-| July 9 | [Quarto file](Lab_sessions/Day_4/Lab_Session_QTA_4.qmd); [data](Lab_sessions/Day_4/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_4/Lab_Session_QTA_4.md) | [Quarto file](Lab_sessions/Day_4/Lab_Session_QTA_4_Answers.qmd); [view answers](Lab_sessions/Day_4/Lab_Session_QTA_4_Answers.md) |
-| July 10 | [Quarto file](Lab_sessions/Day_5/Lab_Session_QTA_5.qmd); [data](Lab_sessions/Day_5/hc_corbyn_may_party_leaders_2015_2020.rds); [view lab](Lab_sessions/Day_5/Lab_Session_QTA_5.md) | [Quarto file](Lab_sessions/Day_5/Lab_Session_QTA_5_Answers.qmd); [view answers](Lab_sessions/Day_5/Lab_Session_QTA_5_Answers.md) |
-| July 13 | [Quarto file](Lab_sessions/Day_6/Lab_Session_QTA_6.qmd); [data](Lab_sessions/Day_6/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_6/Lab_Session_QTA_6.md) | [Quarto file](Lab_sessions/Day_6/Lab_Session_QTA_6_Answers.qmd); [view answers](Lab_sessions/Day_6/Lab_Session_QTA_6_Answers.md) |
-| July 14 | [Quarto file](Lab_sessions/Day_7/Lab_Session_QTA_7.qmd); [data](Lab_sessions/Day_7/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_7/Lab_Session_QTA_7.md) | [Quarto file](Lab_sessions/Day_7/Lab_Session_QTA_7_Answers.qmd); [view answers](Lab_sessions/Day_7/Lab_Session_QTA_7_Answers.md) |
-| July 15 | [Quarto file](Lab_sessions/Day_8/Lab_Session_QTA_8.qmd); [data](Lab_sessions/Day_8/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_8/Lab_Session_QTA_8.md) | [Quarto file](Lab_sessions/Day_8/Lab_Session_QTA_8_Answers.qmd); [view answers](Lab_sessions/Day_8/Lab_Session_QTA_8_Answers.md) |
-| July 16 | [Quarto file](Lab_sessions/Day_9/Lab_Session_QTA_9.qmd); [data](Lab_sessions/Day_9/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_9/Lab_Session_QTA_9.md) | [Quarto file](Lab_sessions/Day_9/Lab_Session_QTA_9_Answers.qmd); [view answers](Lab_sessions/Day_9/Lab_Session_QTA_9_Answers.md) |
-| July 17 | [Quarto file](Lab_sessions/Day_10/Lab_Session_QTA_10.qmd); [data](Lab_sessions/Day_10/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_10/Lab_Session_QTA_10.md) | [Quarto file](Lab_sessions/Day_10/Lab_Session_QTA_10_Answers.qmd); [view answers](Lab_sessions/Day_10/Lab_Session_QTA_10_Answers.md) |
+| July 6 | [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1.qmd); [data](Data/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_1/Lab_Session_QTA_1.md) | [Quarto file](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.qmd); [view answers](Lab_sessions/Day_1/Lab_Session_QTA_1_Answers.md) |
+| July 7 | [Quarto file](Lab_sessions/Day_2/Lab_Session_QTA_2.qmd); [data](Data/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_2/Lab_Session_QTA_2.md) | [Quarto file](Lab_sessions/Day_2/Lab_Session_QTA_2_Answers.qmd); [view answers](Lab_sessions/Day_2/Lab_Session_QTA_2_Answers.md) |
+| July 8 | [Quarto file](Lab_sessions/Day_3/Lab_Session_QTA_3.qmd); [data](Data/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_3/Lab_Session_QTA_3.md) | [Quarto file](Lab_sessions/Day_3/Lab_Session_QTA_3_Answers.qmd); [view answers](Lab_sessions/Day_3/Lab_Session_QTA_3_Answers.md) |
+| July 9 | [Quarto file](Lab_sessions/Day_4/Lab_Session_QTA_4.qmd); [data](Data/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_4/Lab_Session_QTA_4.md) | [Quarto file](Lab_sessions/Day_4/Lab_Session_QTA_4_Answers.qmd); [view answers](Lab_sessions/Day_4/Lab_Session_QTA_4_Answers.md) |
+| July 10 | [Quarto file](Lab_sessions/Day_5/Lab_Session_QTA_5.qmd); [data](Data/hc_corbyn_may_party_leaders_2015_2020.rds); [view lab](Lab_sessions/Day_5/Lab_Session_QTA_5.md) | [Quarto file](Lab_sessions/Day_5/Lab_Session_QTA_5_Answers.qmd); [view answers](Lab_sessions/Day_5/Lab_Session_QTA_5_Answers.md) |
+| July 13 | [Quarto file](Lab_sessions/Day_6/Lab_Session_QTA_6.qmd); [data](Data/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_6/Lab_Session_QTA_6.md) | [Quarto file](Lab_sessions/Day_6/Lab_Session_QTA_6_Answers.qmd); [view answers](Lab_sessions/Day_6/Lab_Session_QTA_6_Answers.md) |
+| July 14 | [Quarto file](Lab_sessions/Day_7/Lab_Session_QTA_7.qmd); [data](Data/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_7/Lab_Session_QTA_7.md) | [Quarto file](Lab_sessions/Day_7/Lab_Session_QTA_7_Answers.qmd); [view answers](Lab_sessions/Day_7/Lab_Session_QTA_7_Answers.md) |
+| July 15 | [Quarto file](Lab_sessions/Day_8/Lab_Session_QTA_8.qmd); [data](Data/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_8/Lab_Session_QTA_8.md) | [Quarto file](Lab_sessions/Day_8/Lab_Session_QTA_8_Answers.qmd); [view answers](Lab_sessions/Day_8/Lab_Session_QTA_8_Answers.md) |
+| July 16 | [Quarto file](Lab_sessions/Day_9/Lab_Session_QTA_9.qmd); [data](Data/hc_sample_1945_2025.rds); [view lab](Lab_sessions/Day_9/Lab_Session_QTA_9.md) | [Quarto file](Lab_sessions/Day_9/Lab_Session_QTA_9_Answers.qmd); [view answers](Lab_sessions/Day_9/Lab_Session_QTA_9_Answers.md) |
+| July 17 | [Quarto file](Lab_sessions/Day_10/Lab_Session_QTA_10.qmd); [data](Data/hc_leader_period_sample_1979_2024.rds); [view lab](Lab_sessions/Day_10/Lab_Session_QTA_10.md) | [Quarto file](Lab_sessions/Day_10/Lab_Session_QTA_10_Answers.qmd); [view answers](Lab_sessions/Day_10/Lab_Session_QTA_10_Answers.md) |
 
 ## Acknowledgements
 

@@ -35,7 +35,7 @@ For this course, open the main course folder in Positron rather than
 opening individual lab folders. This folder is a Quarto project, which
 means that code is evaluated relative to the main course folder when the
 labs are rendered. Using one project folder also keeps file paths
-simple: paths such as `Labs/Lab_1/hc_sample_1945_2025.rds` start from
+simple: paths such as `Data/hc_sample_1945_2025.rds` start from
 the main course folder.
 
 The interface will usually contain these areas:
@@ -313,7 +313,7 @@ interactive work should use the main course folder as the working
 directory. The path below therefore starts from the main course folder.
 
 ``` r
-data_path <- "Labs/Lab_1/hc_sample_1945_2025.rds"
+data_path <- "Data/hc_sample_1945_2025.rds"
 
 hoc <- readRDS(data_path)
 ```
@@ -678,11 +678,11 @@ topic_plot
 ![](Lab_Session_QTA_1_Answers_files/figure-commonmark/plot_topic_mentions-1.png)
 
 Finally, let us save one of the plots. Because our paths start from the
-main course folder, we write the PNG file to the `Labs/Lab_1` folder
+main course folder, we write the PNG file to the `Lab_sessions/Day_1` folder
 explicitly.
 
 ``` r
-ggsave("Labs/Lab_1/hoc_party_counts.png", plot = party_plot, width = 8, height = 5)
+ggsave("Lab_sessions/Day_1/hoc_party_counts.png", plot = party_plot, width = 8, height = 5)
 ```
 
 ## A note on LLMs and text input
