@@ -1,4 +1,4 @@
-Materials for the Essex Summer School 2026 course [*Introduction to Quantitative Text Analysis*](https://essexsummerschool.com/course/ess-2026-course-list/1k/) which took place from 6--17 July, 2026. 
+Materials for the Essex Summer School 2026 course [*Introduction to Quantitative Text Analysis*](https://essexsummerschool.com/course/ess-2026-course-list/1k/) which took place from 6-17 July, 2026. 
 
 Instructor: [Martijn Schoonvelde](http://mschoonvelde.com)  
 Syllabus: [Syllabus_QTA.pdf](Syllabus_QTA.pdf)  
@@ -63,7 +63,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Core assumptions in quantitative text analysis. Representations of text. Preprocessing, feature selection and input design.
 
--	**Lab**: String operations and regular expressions; cleaning House of Commons metadata; creating and inspecting a `quanteda` corpus, tokens, keywords-in-context, and document-feature matrices.
+-	**Lab**: String operations and regular expressions; cleaning metadata; creating and inspecting a `quanteda` corpus, tokens, keywords-in-context, and document-feature matrices.
 
 - **Readings**:
 
@@ -74,7 +74,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Advanced text representations: embeddings, contextual embeddings, and LLM representations. Comparing representations.
 
--	**Lab**: Comparing raw text, document-feature matrices, and word embeddings; training a small GloVe model with `text2vec`; inspecting neighbours and cosine similarity.
+-	**Lab**: Comparing raw text, document-feature matrices, and static word embeddings; training a small GloVe model with `text2vec`; inspecting neighbours and cosine similarity.
 
 - **Readings**:
 
@@ -85,7 +85,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Dictionary construction and validation. How are dictionaries still relevant in the age of LLMs? 
 
--	**Lab**: Applying sentiment dictionaries; calculating dictionary rates; building, adapting, and validating an economic insecurity dictionary; and using KWIC, embeddings, and LLM prompts to develop candidate terms.
+-	**Lab**: Building, adapting, and validating dictionaries; considering KWIC, embeddings, and LLM prompts to develop candidate terms.
 
 - **Readings**
 
@@ -94,9 +94,9 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 *Day 5 - July 10*
 
--	**Lecture**: Supervised document classification through human and LLM-assisted coding. Evaluating classifiers and annotations.
+-	**Lecture**: Supervised document classification through human and LLM-assisted coding. Evaluating classifiers.
 
--	**Lab**: Defining a supervised classification task; training Naive Bayes and regularised logistic regression classifiers; evaluating predictions with precision, recall, F1, and confusion matrices.
+-	**Lab**: Defining a supervised classification task; training traditional classifiers; evaluating predictions with precision, recall, F1, and confusion matrices.
 
 - **Readings**:
 
@@ -105,7 +105,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 *Day 6 - July 13*
 
--	**Lecture**: Supervised, semi-supervised, unsupervised, and instruction-based approaches to placing text on an underlying dimension. Discussing their pros and cons.
+-	**Lecture**: Supervised, semi-supervised, unsupervised approaches to placing text on an underlying dimension. Discussing their pros and cons.
 
 -	**Lab**: Aggregating speeches into party-period documents; estimating Wordscores, Wordfish, and Latent Semantic Scaling models; comparing what different scaling approaches measure.
 
@@ -118,7 +118,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: Understanding topic models. Discussing their pros and cons. 
 
--	**Lab**: Estimating LDA, Structural Topic Models, and seeded LDA models; interpreting topic terms, document-topic proportions, and topic prevalence across parties.
+-	**Lab**: Estimating LDA, Structural Topic Models, and seeded LDA models; interpreting topic terms, document-topic proportions, and topic prevalence.
 
 - **Readings**:
 
@@ -127,9 +127,9 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 *Day 8 - July 15*
 
--	**Lecture**: New forms of textual data: multilingual text, speech-to-text, multimodal data. 
+-	**Lecture**: New forms of (model-produced) text data: transformation, annotation, interpretation.
 
--	**Lab**: Using UDPipe for tokenisation, lemmatisation, POS tagging, and dependency parsing; downloading language-specific models; building POS-specific DFMs; comparing parties with keyness; and creating validation samples for model-generated labels.
+-	**Lab**: Using UDPipe for tokenisation, lemmatisation, POS tagging, and dependency parsing; downloading language-specific models; building POS-specific DFMs.
 
 - **Readings**:
 
@@ -139,9 +139,9 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 *Day 9 - July 16*
 
--	**Lecture**: New developments in supervised machine learning. Weak supervision. Transfer learning. 
+-	**Lecture**: New developments in supervised machine learning. Weak supervision. Transfer learning. Transformer-based model
 
--	**Lab**: Using Natural Language Inference for zero-shot classification of House of Commons speeches; comparing model labels with weak keyword labels and designing validation workflows.
+-	**Lab**: Using BERT-NLI for zero-shot classification of House of Commons speeches; designing validation workflows.
 
 - **Readings**:
 
@@ -153,7 +153,7 @@ I thank Stefan Müller for sharing his lab session materials for his QTA course 
 
 -	**Lecture**: LLMs in QTA: annotation, classification, extraction, validation, and reporting. Concluding remarks 
 
--	**Lab**: LLM-assisted coding with `quallmer` and `ellmer`; setting up Ollama, writing structured codebooks, coding leader speeches for credit claiming and blame attribution, validating outputs, and preserving provenance.
+-	**Lab**: LLM-assisted coding with `quallmer` and `ellmer`; setting up Ollama, writing structured codebooks, coding leader speeches for credit claiming and blame attribution, validating outputs.
 
 - **Readings**:
 
